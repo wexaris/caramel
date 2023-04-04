@@ -50,22 +50,30 @@ impl TypeValidator {
 
     pub fn validate_if(&mut self, stmt: &IfStmt) -> Result<()> {
         self.validate_expr(&stmt.check, ValueType::Boolean)?;
+
+        self.push_scope();
         for stmt in &stmt.branch_true {
             self.validate_stmt(stmt)?;
         }
+        self.pop_scope();
+
         if let Some(branch_false) = &stmt.branch_false {
+            self.push_scope();
             for stmt in branch_false {
                 self.validate_stmt(stmt)?;
             }
+            self.pop_scope();
         }
         Ok(())
     }
 
     pub fn validate_while(&mut self, stmt: &WhileStmt) -> Result<()> {
         self.validate_expr(&stmt.check, ValueType::Boolean)?;
+        self.push_scope();
         for stmt in &stmt.branch_true {
             self.validate_stmt(stmt)?;
         }
+        self.pop_scope();
         Ok(())
     }
 
@@ -146,9 +154,12 @@ impl TypeValidator {
         self.context.find(&id.name)
             .ok_or(Error::UndeclaredIdent(id.clone()))
     }
+
+    fn push_scope(&mut self) { self.context.push(); }
+    fn pop_scope(&mut self)  { self.context.pop();  }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct TypeStack {
     inner: Vec<HashMap<String, ValueType>>,
 }
@@ -188,6 +199,7 @@ pub mod result {
 
     pub type Result<T> = std::result::Result<T, Error>;
 
+    #[derive(Debug, Clone)]
     pub enum Error {
         UndeclaredIdent(Ident),
         TypeMismatch(ValueType, ValueType),
