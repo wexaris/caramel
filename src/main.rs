@@ -1,7 +1,10 @@
+mod ast;
 mod parse;
 
 use std::path::Path;
-use crate::parse::{ASTPrinter, Parser, Tokenizer};
+use crate::ast::ASTPrinter;
+use crate::ast::validate::r#type::TypeValidator;
+use crate::parse::{Parser, Tokenizer};
 
 fn main() {
     let file = Path::new("input.txt");
@@ -34,7 +37,15 @@ fn main() {
         return;
     }
 
+    // Validate
+    let mut validator = TypeValidator::new();
+    if let Err(e) = validator.validate(&ast) {
+        println!("{}", e);
+        println!("\nValidation failed; input invalid!");
+        return;
+    }
+
     // Print AST
     let mut printer = ASTPrinter::new();
-    printer.print_root(&ast);
+    printer.print(&ast);
 }

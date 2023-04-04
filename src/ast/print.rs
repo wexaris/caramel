@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::parse::ast::*;
+use crate::ast::*;
 
 pub struct ASTPrinter {
     level: u32,
@@ -12,8 +12,8 @@ impl ASTPrinter {
         ASTPrinter { level: 0, branches: vec![] }
     }
 
-    pub fn print_root(&mut self, ast: &ASTRoot) {
-        self.print_and_push("Root");
+    pub fn print(&mut self, ast: &Root) {
+        self.write_and_push("Root");
         for (idx, stmt) in ast.stmt_list.iter().enumerate() {
             if idx + 1 == ast.stmt_list.len() as usize {
                 self.mark_last();
@@ -35,11 +35,11 @@ impl ASTPrinter {
     }
 
     pub fn print_skip(&mut self) {
-        self.print("Skip");
+        self.write("Skip");
     }
 
     pub fn print_read(&mut self, stmt: &ReadStmt) {
-        self.print_and_push("Read");
+        self.write_and_push("Read");
         for (idx, id) in stmt.var_list.iter().enumerate() {
             if idx + 1 == stmt.var_list.len() as usize {
                 self.mark_last();
@@ -50,7 +50,7 @@ impl ASTPrinter {
     }
 
     pub fn print_write(&mut self, stmt: &WriteStmt) {
-        self.print_and_push("Write");
+        self.write_and_push("Write");
         for (idx, id) in stmt.var_list.iter().enumerate() {
             if idx + 1 == stmt.var_list.len() as usize {
                 self.mark_last();
@@ -61,11 +61,11 @@ impl ASTPrinter {
     }
 
     pub fn print_if(&mut self, stmt: &IfStmt) {
-        self.print_and_push("If");
+        self.write_and_push("If");
 
         self.print_expr(stmt.check.as_ref());
 
-        self.print_and_push("If_True");
+        self.write_and_push("If_True");
         for (idx, s) in stmt.branch_true.iter().enumerate() {
             if idx + 1 == stmt.branch_true.len() as usize {
                 self.mark_last();
@@ -76,7 +76,7 @@ impl ASTPrinter {
 
         self.mark_last();
 
-        self.print_and_push("If_False");
+        self.write_and_push("If_False");
         if let Some(branch_false) = &stmt.branch_false {
             for (idx, s) in branch_false.iter().enumerate() {
                 if idx + 1 == branch_false.len() as usize {
@@ -91,13 +91,13 @@ impl ASTPrinter {
     }
 
     pub fn print_while(&mut self, stmt: &WhileStmt) {
-        self.print_and_push("While");
+        self.write_and_push("While");
 
         self.print_expr(stmt.check.as_ref());
 
         self.mark_last();
 
-        self.print_and_push("While_True");
+        self.write_and_push("While_True");
         for (idx, s) in stmt.branch_true.iter().enumerate() {
             if idx + 1 == stmt.branch_true.len() as usize {
                 self.mark_last();
@@ -110,7 +110,7 @@ impl ASTPrinter {
     }
 
     pub fn print_assign(&mut self, stmt: &AssignStmt) {
-        self.print_and_push("Assign");
+        self.write_and_push("Assign");
         self.print_ident(&stmt.id);
         self.mark_last();
         self.print_expr(stmt.expr.as_ref());
@@ -141,44 +141,43 @@ impl ASTPrinter {
 
     pub fn print_op(&mut self, op: &Op) {
         match op {
-            Op::Neg => self.print("Negation"),
-            Op::Plus => self.print("Plus"),
-            Op::Minus => self.print("Minus"),
-            Op::Mul => self.print("Mul"),
-            Op::Div => self.print("Div"),
-            Op::Eq => self.print("Eq"),
-            Op::Neq => self.print("Neq"),
-            Op::Less => self.print("Less"),
-            Op::LessEq => self.print("LessEq"),
-            Op::More => self.print("More"),
-            Op::MoreEq => self.print("MoreEq"),
-            Op::And => self.print("And"),
-            Op::Or => self.print("Or"),
+            Op::Neg => self.write("Negation"),
+            Op::Plus => self.write("Plus"),
+            Op::Minus => self.write("Minus"),
+            Op::Mul => self.write("Mul"),
+            Op::Div => self.write("Div"),
+            Op::Eq => self.write("Eq"),
+            Op::Neq => self.write("Neq"),
+            Op::Less => self.write("Less"),
+            Op::LessEq => self.write("LessEq"),
+            Op::More => self.write("More"),
+            Op::MoreEq => self.write("MoreEq"),
+            Op::And => self.write("And"),
+            Op::Or => self.write("Or"),
         }
     }
 
     pub fn print_ident(&mut self, id: &Ident) {
-        self.print(&format!("Ident {}", id.name));
+        self.write(&format!("Ident {}", id.name));
     }
 
     pub fn print_literal(&mut self, lit: &Literal) {
         match lit {
-            Literal::Integer(val) => self.print(&format!("Integer {}", val)),
-            Literal::Boolean(val) => self.print(&format!("Boolean {}", val)),
+            Literal::Integer(val) => self.write(&format!("Integer {}", val)),
+            Literal::Boolean(val) => self.write(&format!("Boolean {}", val)),
         }
     }
 
-    fn print(&self, print: &str) {
-        let indent = self.make_indent();
-        println!("{} <{}>", indent, print);
+    fn write(&self, txt: &str) {
+        println!("{} <{}>", self.curr_indent(), txt);
     }
 
-    fn print_and_push(&mut self, print: &str) {
-        self.print(print);
+    fn write_and_push(&mut self, print: &str) {
+        self.write(print);
         self.push();
     }
 
-    fn make_indent(&self) -> String {
+    fn curr_indent(&self) -> String {
         if self.level == 0 {
             return String::new();
         }

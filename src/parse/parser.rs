@@ -1,4 +1,5 @@
-use crate::parse::{AssignStmt, ASTRoot, Expr, Ident, IdentList, IfStmt, Literal, Op, ReadStmt, Stmt, StmtList, Token, TokenStream, TokenType, WhileStmt, WriteStmt};
+use crate::ast::{AssignStmt, Root, Expr, Ident, IdentList, IfStmt, Literal, Op, ReadStmt, Stmt, StmtList, WhileStmt, WriteStmt};
+use crate::parse::{Token, TokenStream, TokenType};
 
 pub struct Parser {
     ts: TokenStream,
@@ -46,9 +47,9 @@ impl Parser {
         parser
     }
 
-    pub fn parse(&mut self) -> ASTRoot {
+    pub fn parse(&mut self) -> Root {
         let stmt_list = self.parse_stmt_list(|tok| tok.is_valid());
-        ASTRoot { stmt_list }
+        Root { stmt_list }
     }
 
     fn parse_stmt_list<F: Fn(&Token) -> bool>(&mut self, check: F) -> StmtList {

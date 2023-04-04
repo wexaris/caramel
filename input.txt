@@ -20,5 +20,6 @@ while true do
         write z;
     fi
 
+    zero := 0;
     write zero, zero;
 od

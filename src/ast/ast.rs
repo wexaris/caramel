@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
-pub struct ASTRoot {
+use std::fmt::{Display, Formatter};
+
+pub struct Root {
     pub stmt_list: StmtList,
 }
 
@@ -73,8 +75,36 @@ pub type IdentList = Vec<Ident>;
 /// ///////////////////////////////////////////////////////
 /// LITERALS
 
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Literal {
     Integer(i32),
     Boolean(bool),
+}
+
+impl Literal {
+    pub fn get_type(&self) -> ValueType {
+        match self {
+            Literal::Integer(_) => ValueType::Integer,
+            Literal::Boolean(_) => ValueType::Boolean,
+        }
+    }
+}
+
+
+/// ///////////////////////////////////////////////////////
+/// TYPES
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum ValueType {
+    Integer,
+    Boolean
+}
+
+impl Display for ValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValueType::Integer => write!(f, "integer"),
+            ValueType::Boolean => write!(f, "boolean")
+        }
+    }
 }
