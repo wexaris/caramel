@@ -35,7 +35,7 @@ impl TypeValidator {
 
     fn validate_stmt_list(&mut self, stmt_list: &StmtList) {
         self.push_scope();
-        for stmt in stmt_list {
+        for stmt in stmt_list.iter() {
             self.validate_stmt(stmt);
         }
         self.pop_scope();
@@ -43,7 +43,7 @@ impl TypeValidator {
 
     pub fn validate_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::Skip => {},
+            Stmt::Skip(stmt) => self.validate_skip(stmt),
             Stmt::Read(stmt) => self.validate_read(stmt),
             Stmt::Write(stmt) => self.validate_write(stmt),
             Stmt::If(stmt) => self.validate_if(stmt),
@@ -52,14 +52,16 @@ impl TypeValidator {
         }
     }
 
+    pub fn validate_skip(&mut self, _: &SkipStmt) {}
+
     pub fn validate_read(&mut self, stmt: &ReadStmt) {
-        for id in &stmt.var_list {
+        for id in stmt.var_list.iter() {
             self.save(id, ValueType::Integer);
         }
     }
 
     pub fn validate_write(&mut self, stmt: &WriteStmt) {
-        for id in &stmt.var_list {
+        for id in stmt.var_list.iter() {
             print_err!(self, self.validate_var(id, ValueType::Integer));
         }
     }
@@ -88,46 +90,52 @@ impl TypeValidator {
         match expr {
             Expr::Lit(lit) => self.validate_literal(lit, expected)?,
             Expr::Var(id) => self.validate_var(id, expected)?,
-            Expr::UnaryOp(op, expr) => {
-                match op {
-                    Op::Neg => {
-                        self.validate_expr(&expr, ValueType::Boolean)?;
-                        if ValueType::Boolean != expected {
-                            return Err(Error::TypeMismatch(expected, ValueType::Boolean))
-                        }
-                    }
-                    _ => return Err(Error::InternalError("invalid operator in Expr::UnaryOp".to_string())),
+            Expr::UnaryOp(expr) => self.validate_unary_op(expr, expected)?,
+            Expr::BinaryOp(expr) => self.validate_binary_op(expr, expected)?,
+        }
+        Ok(())
+    }
+
+    fn validate_unary_op(&mut self, expr: &UnaryOpExpr, expected: ValueType) -> Result<()> {
+        match expr.op {
+            Op::Neg => {
+                self.validate_expr(&expr.expr, ValueType::Boolean)?;
+                if ValueType::Boolean != expected {
+                    return Err(Error::TypeMismatch(expr.span, expected, ValueType::Boolean))
                 }
             }
-            Expr::BinaryOp(op, lhs, rhs) => {
-                match op {
-                    Op::Plus | Op::Minus |
-                    Op::Mul | Op::Div => {
-                        self.validate_expr(&lhs, ValueType::Integer)?;
-                        self.validate_expr(&rhs, ValueType::Integer)?;
-                        if ValueType::Integer != expected {
-                            return Err(Error::TypeMismatch(expected, ValueType::Integer))
-                        }
-                    }
-                    Op::Eq | Op::Neq |
-                    Op::Less | Op::LessEq |
-                    Op::More | Op::MoreEq => {
-                        self.validate_expr(&lhs, ValueType::Integer)?;
-                        self.validate_expr(&rhs, ValueType::Integer)?;
-                        if ValueType::Boolean != expected {
-                            return Err(Error::TypeMismatch(expected, ValueType::Boolean))
-                        }
-                    }
-                    Op::And | Op::Or => {
-                        self.validate_expr(&lhs, ValueType::Boolean)?;
-                        self.validate_expr(&rhs, ValueType::Boolean)?;
-                        if ValueType::Boolean != expected {
-                            return Err(Error::TypeMismatch(expected, ValueType::Boolean))
-                        }
-                    }
-                    _ => return Err(Error::InternalError("invalid operator in Expr::BinaryOp".to_string())),
+            _ => return Err(Error::InternalError("invalid operator in UnaryOpExpr".to_string())),
+        }
+        Ok(())
+    }
+
+    fn validate_binary_op(&mut self, expr: &BinaryOpExpr, expected: ValueType) -> Result<()> {
+        match expr.op {
+            Op::Plus | Op::Minus |
+            Op::Mul | Op::Div => {
+                self.validate_expr(&expr.lhs, ValueType::Integer)?;
+                self.validate_expr(&expr.rhs, ValueType::Integer)?;
+                if ValueType::Integer != expected {
+                    return Err(Error::TypeMismatch(expr.span, expected, ValueType::Integer))
                 }
             }
+            Op::Eq | Op::Neq |
+            Op::Less | Op::LessEq |
+            Op::More | Op::MoreEq => {
+                self.validate_expr(&expr.lhs, ValueType::Integer)?;
+                self.validate_expr(&expr.rhs, ValueType::Integer)?;
+                if ValueType::Boolean != expected {
+                    return Err(Error::TypeMismatch(expr.span, expected, ValueType::Boolean))
+                }
+            }
+            Op::And | Op::Or => {
+                self.validate_expr(&expr.lhs, ValueType::Boolean)?;
+                self.validate_expr(&expr.rhs, ValueType::Boolean)?;
+                if ValueType::Boolean != expected {
+                    return Err(Error::TypeMismatch(expr.span, expected, ValueType::Boolean))
+                }
+            }
+            _ => return Err(Error::InternalError("invalid operator in BinaryOpExpr".to_string())),
         }
         Ok(())
     }
@@ -135,14 +143,14 @@ impl TypeValidator {
     pub fn validate_var(&mut self, id: &Ident, expected: ValueType) -> Result<()> {
         let found = self.find(id)?;
         if found != expected {
-            return Err(Error::TypeMismatch(expected, found));
+            return Err(Error::TypeMismatch(id.span, expected, found));
         }
         Ok(())
     }
 
     pub fn validate_literal(&mut self, lit: &Literal, expected: ValueType) -> Result<()> {
         if lit.get_type() != expected {
-            return Err(Error::TypeMismatch(expected, lit.get_type()));
+            return Err(Error::TypeMismatch(lit.span, expected, lit.get_type()));
         }
         Ok(())
     }
@@ -200,22 +208,26 @@ pub mod result {
     use std::fmt::{Display, Formatter};
     use crate::ast::Ident;
     use crate::ast::validate::r#type::ValueType;
+    use crate::parse::Span;
 
     pub type Result<T> = std::result::Result<T, Error>;
 
     #[derive(Debug, Clone)]
     pub enum Error {
         UndeclaredIdent(Ident),
-        TypeMismatch(ValueType, ValueType),
+        TypeMismatch(Span, ValueType, ValueType),
         InternalError(String),
     }
 
     impl Display for Error {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             match self {
-                Error::UndeclaredIdent(id) => write!(f, "undeclared identifier: {}", id.name),
-                Error::TypeMismatch(expected, found) => write!(f, "type mismatch; expected {}, found {}", expected, found),
-                Error::InternalError(msg) => write!(f, "internal error; {}", msg),
+                Error::UndeclaredIdent(id) =>
+                    write!(f, "{}: undeclared identifier: {}", id.span, id.name),
+                Error::TypeMismatch(span, expected, found) =>
+                    write!(f, "{}: type mismatch; expected {}, found {}", span, expected, found),
+                Error::InternalError(msg) =>
+                    write!(f, "internal error; {}", msg),
             }
         }
     }
