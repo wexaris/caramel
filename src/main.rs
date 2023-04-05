@@ -2,7 +2,7 @@ mod ast;
 mod parse;
 
 use std::path::Path;
-use crate::ast::ASTPrinter;
+use crate::ast::Interpreter;
 use crate::ast::validate::r#type::TypeValidator;
 use crate::parse::{Parser, Tokenizer};
 
@@ -45,7 +45,10 @@ fn main() {
         return;
     }
 
-    // Print AST
-    let mut printer = ASTPrinter::new();
-    printer.print(&ast);
+    // Run interpreter
+    let mut interpreter = Interpreter::new();
+    if let Err(e) = interpreter.run(&ast) {
+        println!("{}", e);
+        return;
+    }
 }

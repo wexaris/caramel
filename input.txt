@@ -1,25 +1,13 @@
 
-x := 2 - 4 / (3 + 1);
+read x, y;
 
-if true and true and !false then
-    skip
-else
-    while false or !true or true do
-        skip;
-    od
-fi
-
-while true do
-    read x, y;
-
-    if x <= 1 or !(x > 8) and x != y or false then
-        write x, y;
-        skip
+while x != y do
+    if x <= y then
+        y := y - x
     else
-        z := (x + y) / 2;
-        write z
+        x := x - y
     fi
+od;
 
-    zero := 0;
-    write zero, zero
-od
+write x;
+write y
