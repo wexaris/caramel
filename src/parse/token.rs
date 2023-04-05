@@ -15,7 +15,7 @@ impl Token {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.tt != TokenType::Invalid
+        self.tt != TokenType::EOF
     }
 }
 
@@ -27,7 +27,7 @@ impl PartialEq<TokenType> for Token {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TokenType {
-    Invalid,
+    EOF,
 
     Ident(String),
     Integer(i32),
@@ -71,16 +71,16 @@ pub enum TokenType {
 
 impl Default for TokenType {
     fn default() -> Self {
-        TokenType::Invalid
+        TokenType::EOF
     }
 }
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            TokenType::Invalid  => write!(f, "<invalid>"),
+            TokenType::EOF => write!(f, "EOF"),
             TokenType::Ident(name) => write!(f, "{}", name),
-            TokenType::Integer(val)  => write!(f, "{}", val),
+            TokenType::Integer(val) => write!(f, "{}", val),
             TokenType::Boolean(val) => write!(f, "{}", val),
             TokenType::Skip     => write!(f, "skip"),
             TokenType::Read     => write!(f, "read"),

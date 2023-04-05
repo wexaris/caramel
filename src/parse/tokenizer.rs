@@ -137,7 +137,7 @@ impl Tokenizer {
                 _ => {
                     self.error_count += 1;
                     println!("{}: invalid symbol: {}", chars.pos_curr, cc);
-                    Token::new(TokenType::Invalid, chars.pos_next - start)
+                    continue;
                 }
             };
 

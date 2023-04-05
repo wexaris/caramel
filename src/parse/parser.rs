@@ -100,7 +100,7 @@ impl Parser {
     fn semi_or_end(&mut self) -> Result<()> {
         match self.curr.tt {
             TokenType::Semi => self.bump(),
-            TokenType::Else | TokenType::Fi | TokenType::Od | TokenType::Invalid => {},
+            TokenType::Else | TokenType::Fi | TokenType::Od | TokenType::EOF => {},
             _ => {
                 self.error_count += 1;
                 return Err(Error::UnexpectedToken(self.curr.clone()))
@@ -389,7 +389,7 @@ impl Parser {
             .map(|x| x.clone())
             .unwrap_or_else(|| {
                 let end_span = Span::new(self.curr.span.hi, self.curr.span.hi);
-                Token::new(TokenType::Invalid, end_span)
+                Token::new(TokenType::EOF, end_span)
             });
     }
 
