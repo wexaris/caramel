@@ -81,7 +81,7 @@ impl Parser {
             TokenType::If       => Stmt::If(self.parse_if()?),
             TokenType::While    => Stmt::While(self.parse_while()?),
             TokenType::Ident(_) => Stmt::Assign(self.parse_assign()?),
-            TokenType::Semi     => return Ok(None), // Empty stmt
+            TokenType::Semi     => { self.bump(); return Ok(None) }, // Empty stmt
             _ => {
                 self.error_count += 1;
                 return Err(Error::UnexpectedToken(self.curr.clone()))
