@@ -1,5 +1,5 @@
 use crate::ast::{AssignStmt, Root, Expr, Ident, IdentList, IfStmt, Literal, Op, ReadStmt, Stmt, StmtList, WhileStmt, WriteStmt};
-use crate::parse::{Token, TokenStream, TokenType};
+use crate::parse::{Span, Token, TokenStream, TokenType};
 
 pub struct Parser {
     ts: TokenStream,
@@ -54,7 +54,7 @@ impl Parser {
 
     fn parse_stmt_list<F: Fn(&Token) -> bool>(&mut self, check: F) -> StmtList {
         let mut list = StmtList::new();
-        while check(&self.curr) {
+        while self.curr.is_valid() && check(&self.curr) {
             if let Some(stmt) = self.try_parse_stmt() {
                 list.push(stmt);
             }
@@ -309,7 +309,10 @@ impl Parser {
 
         self.next = self.ts.get(self.idx)
             .map(|x| x.clone())
-            .unwrap_or_default();
+            .unwrap_or_else(|| {
+                let end_span = Span::new(self.curr.span.hi, self.curr.span.hi);
+                Token::new(TokenType::Invalid, end_span)
+            });
     }
 
     pub fn has_errors(&self) -> bool {
