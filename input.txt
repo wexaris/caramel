@@ -2,7 +2,7 @@
 x := 2 - 4 / (3 + 1);
 
 if true and true and !false then
-    skip;
+    skip
 else
     while false or !true or true do
         skip;
@@ -14,12 +14,12 @@ while true do
 
     if x <= 1 or !(x > 8) and x != y or false then
         write x, y;
-        skip;
+        skip
     else
         z := (x + y) / 2;
-        write z;
+        write z
     fi
 
     zero := 0;
-    write zero, zero;
+    write zero, zero
 od

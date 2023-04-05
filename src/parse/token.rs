@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::fmt::{Display, Formatter};
 use crate::parse::Span;
 
 #[derive(Default, Debug, Clone)]
@@ -71,6 +72,45 @@ pub enum TokenType {
 impl Default for TokenType {
     fn default() -> Self {
         TokenType::Invalid
+    }
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenType::Invalid  => write!(f, "<invalid>"),
+            TokenType::Ident(name) => write!(f, "{}", name),
+            TokenType::Integer(val)  => write!(f, "{}", val),
+            TokenType::Boolean(val) => write!(f, "{}", val),
+            TokenType::Skip     => write!(f, "skip"),
+            TokenType::Read     => write!(f, "read"),
+            TokenType::Write    => write!(f, "write"),
+            TokenType::If       => write!(f, "if"),
+            TokenType::Then     => write!(f, "then"),
+            TokenType::Else     => write!(f, "else"),
+            TokenType::Fi       => write!(f, "fi"),
+            TokenType::While    => write!(f, "while"),
+            TokenType::Do       => write!(f, "do"),
+            TokenType::Od       => write!(f, "od"),
+            TokenType::Assign   => write!(f, ":="),
+            TokenType::Plus     => write!(f, "+"),
+            TokenType::Minus    => write!(f, "-"),
+            TokenType::Star     => write!(f, "*"),
+            TokenType::Slash    => write!(f, "/"),
+            TokenType::Eq       => write!(f, "="),
+            TokenType::Neq      => write!(f, "!="),
+            TokenType::LessEq   => write!(f, "<="),
+            TokenType::MoreEq   => write!(f, ">="),
+            TokenType::Less     => write!(f, "<"),
+            TokenType::More     => write!(f, ">"),
+            TokenType::Or       => write!(f, "or"),
+            TokenType::And      => write!(f, "and"),
+            TokenType::Neg      => write!(f, "!"),
+            TokenType::Semi     => write!(f, ";"),
+            TokenType::Comma    => write!(f, ","),
+            TokenType::LParen   => write!(f, "("),
+            TokenType::RParen   => write!(f, ")"),
+        }
     }
 }
 

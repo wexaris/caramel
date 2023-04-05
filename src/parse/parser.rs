@@ -28,7 +28,7 @@ macro_rules! expect {
             },
             _ => {
                 $parser.error_count += 1;
-                Err(Error::UnexpectedToken($parser.curr.span))
+                Err(Error::UnexpectedToken($parser.curr.clone()))
             }
         }
     };
@@ -64,7 +64,7 @@ impl Parser {
 
     fn try_parse_stmt(&mut self) -> Option<Stmt> {
         match self.parse_stmt() {
-            Ok(x) => Some(x),
+            Ok(x) => x,
             Err(e) => {
                 println!("{}", e);
                 self.recover();
@@ -73,38 +73,51 @@ impl Parser {
         }
     }
 
-    fn parse_stmt(&mut self) -> Result<Stmt> {
-        Ok(match self.curr.tt {
+    fn parse_stmt(&mut self) -> Result<Option<Stmt>> {
+        Ok(Some(match self.curr.tt {
             TokenType::Skip     => { self.parse_skip()?; Stmt::Skip },
             TokenType::Read     => Stmt::Read(self.parse_read()?),
             TokenType::Write    => Stmt::Write(self.parse_write()?),
             TokenType::If       => Stmt::If(self.parse_if()?),
             TokenType::While    => Stmt::While(self.parse_while()?),
             TokenType::Ident(_) => Stmt::Assign(self.parse_assign()?),
+            TokenType::Semi     => return Ok(None), // Empty stmt
             _ => {
                 self.error_count += 1;
-                return Err(Error::UnexpectedToken(self.curr.span))
+                return Err(Error::UnexpectedToken(self.curr.clone()))
             },
-        })
+        }))
+    }
+
+    fn semi_or_end(&mut self) -> Result<()> {
+        match self.curr.tt {
+            TokenType::Semi => self.bump(),
+            TokenType::Else | TokenType::Fi | TokenType::Od | TokenType::Invalid => {},
+            _ => {
+                self.error_count += 1;
+                return Err(Error::UnexpectedToken(self.curr.clone()))
+            }
+        }
+        Ok(())
     }
 
     fn parse_skip(&mut self) -> Result<()> {
         expect!(self, TokenType::Skip)?;
-        expect!(self, TokenType::Semi)?;
+        self.semi_or_end()?;
         Ok(())
     }
 
     fn parse_read(&mut self) -> Result<ReadStmt> {
         expect!(self, TokenType::Read)?;
         let ident_list = self.parse_ident_list()?;
-        expect!(self, TokenType::Semi)?;
+        self.semi_or_end()?;
         Ok(ReadStmt { var_list: ident_list })
     }
 
     fn parse_write(&mut self) -> Result<WriteStmt> {
         expect!(self, TokenType::Write)?;
         let ident_list = self.parse_ident_list()?;
-        expect!(self, TokenType::Semi)?;
+        self.semi_or_end()?;
         Ok(WriteStmt { var_list: ident_list })
     }
 
@@ -141,7 +154,7 @@ impl Parser {
         let id = self.parse_ident()?;
         expect!(self, TokenType::Assign)?;
         let expr = self.parse_expr()?;
-        expect!(self, TokenType::Semi)?;
+        self.semi_or_end()?;
         Ok(AssignStmt { id, expr })
     }
 
@@ -318,20 +331,20 @@ pub use result::*;
 
 pub mod result {
     use std::fmt::{Display, Formatter};
-    use crate::parse::Span;
+    use crate::parse::{Span, Token};
 
     pub type Result<T> = std::result::Result<T, Error>;
 
     pub enum Error {
         SyntaxError(Span, String),
-        UnexpectedToken(Span),
+        UnexpectedToken(Token),
     }
 
     impl Display for Error {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             match self {
                 Error::SyntaxError(span, msg) => write!(f, "{}: syntax error; {}", span, msg),
-                Error::UnexpectedToken(span) => write!(f, "{}: unexpected token", span),
+                Error::UnexpectedToken(tk) => write!(f, "{}: unexpected token: {}", tk.span, tk.tt),
             }
         }
     }
