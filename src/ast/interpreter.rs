@@ -54,7 +54,7 @@ impl Interpreter {
         const DATA_FILE: &str = "data.txt";
         let data = std::fs::read_to_string(DATA_FILE)?;
         let pieces = data.split(',')
-            .map(|x| x.to_owned())
+            .map(|x| x.trim().to_owned())
             .collect();
         Ok(pieces)
     }
@@ -85,7 +85,8 @@ impl Interpreter {
                     let val = match i32::from_str(val_str) {
                         Ok(val) => val,
                         Err(_) => {
-                            return Err(Error::RuntimeError("invalid data argument".to_string()));
+                            let msg = format!("invalid data argument: {}", val_str);
+                            return Err(Error::RuntimeError(msg));
                         }
                     };
 
