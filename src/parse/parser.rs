@@ -1,8 +1,9 @@
-use crate::ast::{AssignStmt, Root, Expr, Ident, IdentList, IfStmt, Literal, Op, ReadStmt, Stmt, StmtList, WhileStmt, WriteStmt};
-use crate::parse::{Span, Token, TokenStream, TokenType};
+use crate::ast::{AssignStmt, Root, Expr, Ident, IdentList, IfStmt, Literal, Op, ReadStmt, Stmt, StmtList, WhileStmt, WriteStmt, SkipStmt, Value, BinaryOpExpr, UnaryOpExpr};
+use crate::parse::{FilePos, Span, Token, TokenStream, TokenType};
 
 pub struct Parser {
     ts: TokenStream,
+    prev: Token,
     curr: Token,
     next: Token,
     idx: usize,
@@ -38,6 +39,7 @@ impl Parser {
     pub fn new(ts: TokenStream) -> Self {
         let mut parser = Parser {
             idx: 0,
+            prev: Token::default(),
             curr: Token::default(),
             next: ts.get(0).map(|x| x.clone()).unwrap_or_default(),
             ts,
@@ -53,13 +55,19 @@ impl Parser {
     }
 
     fn parse_stmt_list<F: Fn(&Token) -> bool>(&mut self, check: F) -> StmtList {
-        let mut list = StmtList::new();
+        let start = self.curr_span_start();
+
+        let mut items = vec![];
         while self.curr.is_valid() && check(&self.curr) {
             if let Some(stmt) = self.try_parse_stmt() {
-                list.push(stmt);
+                items.push(stmt);
             }
         }
-        list
+
+        StmtList {
+            span: self.span_since(start),
+            items
+        }
     }
 
     fn try_parse_stmt(&mut self) -> Option<Stmt> {
@@ -75,7 +83,7 @@ impl Parser {
 
     fn parse_stmt(&mut self) -> Result<Option<Stmt>> {
         Ok(Some(match self.curr.tt {
-            TokenType::Skip     => { self.parse_skip()?; Stmt::Skip },
+            TokenType::Skip     => Stmt::Skip(self.parse_skip()?),
             TokenType::Read     => Stmt::Read(self.parse_read()?),
             TokenType::Write    => Stmt::Write(self.parse_write()?),
             TokenType::If       => Stmt::If(self.parse_if()?),
@@ -101,27 +109,46 @@ impl Parser {
         Ok(())
     }
 
-    fn parse_skip(&mut self) -> Result<()> {
+    fn parse_skip(&mut self) -> Result<SkipStmt> {
+        let start = self.curr_span_start();
+
         expect!(self, TokenType::Skip)?;
         self.semi_or_end()?;
-        Ok(())
+
+        Ok(SkipStmt {
+            span: self.span_since(start)
+        })
     }
 
     fn parse_read(&mut self) -> Result<ReadStmt> {
+        let start = self.curr_span_start();
+
         expect!(self, TokenType::Read)?;
         let ident_list = self.parse_ident_list()?;
         self.semi_or_end()?;
-        Ok(ReadStmt { var_list: ident_list })
+
+        Ok(ReadStmt {
+            span: self.span_since(start),
+            var_list: ident_list
+        })
     }
 
     fn parse_write(&mut self) -> Result<WriteStmt> {
+        let start = self.curr_span_start();
+
         expect!(self, TokenType::Write)?;
         let ident_list = self.parse_ident_list()?;
         self.semi_or_end()?;
-        Ok(WriteStmt { var_list: ident_list })
+
+        Ok(WriteStmt {
+            span: self.span_since(start),
+            var_list: ident_list
+        })
     }
 
     fn parse_if(&mut self) -> Result<IfStmt> {
+        let start = self.curr_span_start();
+
         expect!(self, TokenType::If)?;
 
         let check = self.parse_expr()?;
@@ -132,30 +159,46 @@ impl Parser {
 
         let branch_false = if check_tok!(self.curr, TokenType::Else) {
             self.bump();
-            let stmt_list = self.parse_stmt_list(|tok| !check_tok!(tok, TokenType::Fi));
-            Some(stmt_list)
+            Some(self.parse_stmt_list(|tok| !check_tok!(tok, TokenType::Fi)))
         } else { None };
 
         expect!(self, TokenType::Fi)?;
 
-        Ok(IfStmt { check, branch_true, branch_false })
+        Ok(IfStmt {
+            span: self.span_since(start),
+            check, branch_true, branch_false
+        })
     }
 
     fn parse_while(&mut self) -> Result<WhileStmt> {
+        let start = self.curr_span_start();
+
         expect!(self, TokenType::While)?;
         let check = self.parse_expr()?;
         expect!(self, TokenType::Do)?;
         let branch_true = self.parse_stmt_list(|tok| !check_tok!(tok, TokenType::Od));
         expect!(self, TokenType::Od)?;
-        Ok(WhileStmt { check, branch_true })
+
+        Ok(WhileStmt {
+            span: self.span_since(start),
+            check,
+            branch_true
+        })
     }
 
     fn parse_assign(&mut self) -> Result<AssignStmt> {
+        let start = self.curr_span_start();
+
         let id = self.parse_ident()?;
         expect!(self, TokenType::Assign)?;
         let expr = self.parse_expr()?;
         self.semi_or_end()?;
-        Ok(AssignStmt { id, expr })
+
+        Ok(AssignStmt {
+            span: self.span_since(start),
+            id,
+            expr
+        })
     }
 
     fn parse_expr(&mut self)  -> Result<Box<Expr>> {
@@ -163,55 +206,80 @@ impl Parser {
     }
 
     fn parse_expr_inner(&mut self, prec: usize) -> Result<Box<Expr>> {
+        let start = self.curr_span_start();
+
         // Parse left side of expression
         let mut lhs = self.parse_atom(prec)?;
 
         while self.is_bin_op() {
-            let op = self.get_opinfo();
-            if (op.prec as usize) < prec {
+            let info = self.get_opinfo();
+            if (info.prec as usize) < prec {
                 break;
             }
             self.bump();
 
             // Parse right side of expression
-            let new_prec = if op.assoc == OpAssoc::Left { op.prec as usize + 1 } else { op.prec as usize };
-            let rhs = self.parse_expr_inner(new_prec)?;
+            let prec = if info.assoc == OpAssoc::Left { info.prec as usize + 1 } else { info.prec as usize };
+            let rhs = self.parse_expr_inner(prec)?;
 
             // Set LHS to complete expression
-            lhs = Box::new(Expr::BinaryOp(op.op, lhs, rhs));
+            lhs = Box::new(Expr::BinaryOp(BinaryOpExpr {
+                span: self.span_since(start),
+                op: info.op,
+                lhs,
+                rhs,
+            }));
         }
 
         Ok(lhs)
     }
 
     fn parse_atom(&mut self, prec: usize) -> Result<Box<Expr>> {
+        let start = self.curr_span_start();
+
         // Parse prefix operator
         if self.is_prefix_op() {
-            let op = self.get_opinfo();
-            if (op.prec as usize) >= prec {
+            let info = self.get_opinfo();
+            if (info.prec as usize) >= prec {
                 self.bump();
 
                 // Parse rest of atom
-                let new_prec = if op.assoc == OpAssoc::Left { op.prec as usize + 1 } else { op.prec as usize };
-                let atom = self.parse_expr_inner(new_prec)?;
+                let prec = if info.assoc == OpAssoc::Left { info.prec as usize + 1 } else { info.prec as usize };
+                let atom = self.parse_expr_inner(prec)?;
 
-                return Ok(Box::new(Expr::UnaryOp(op.op, atom)));
+                return Ok(Box::new(Expr::UnaryOp(UnaryOpExpr {
+                    span: self.span_since(start),
+                    op: info.op,
+                    expr: atom,
+                })));
             }
         }
 
         let expr = match &self.curr.tt {
             TokenType::Ident(name) => {
-                let expr = Expr::Var(Ident { name: name.to_owned() });
+                let expr = Expr::Var(Ident {
+                    span: self.curr.span,
+                    name: name.to_owned()
+                });
+
                 self.bump();
                 Box::new(expr)
             },
             TokenType::Integer(val) => {
-                let expr = Expr::Lit(Literal::Integer(val.clone()));
+                let expr = Expr::Lit(Literal {
+                    span: self.curr.span,
+                    value: Value::Integer(*val)
+                } );
+
                 self.bump();
                 Box::new(expr)
             }
             TokenType::Boolean(val) => {
-                let expr = Expr::Lit(Literal::Boolean(val.clone()));
+                let expr = Expr::Lit(Literal {
+                    span: self.curr.span,
+                    value: Value::Boolean(*val)
+                } );
+
                 self.bump();
                 Box::new(expr)
             }
@@ -231,10 +299,12 @@ impl Parser {
     }
 
     fn parse_ident_list(&mut self) -> Result<IdentList> {
-        let mut list = IdentList::new();
+        let start = self.curr_span_start();
+
+        let mut items = vec![];
         loop {
             let id = self.parse_ident()?;
-            list.push(id);
+            items.push(id);
 
             if !check_tok!(self.curr, TokenType::Comma) {
                 break;
@@ -242,13 +312,20 @@ impl Parser {
 
             self.bump();
         }
-        Ok(list)
+
+        Ok(IdentList {
+            span: self.span_since(start),
+            items,
+        })
     }
 
     fn parse_ident(&mut self) -> Result<Ident> {
         let tok = expect!(self, TokenType::Ident(_))?;
         if let TokenType::Ident(name) = tok.tt {
-            return Ok(Ident { name });
+            return Ok(Ident {
+                span: tok.span,
+                name
+            });
         }
         unreachable!()
     }
@@ -305,6 +382,7 @@ impl Parser {
             self.idx += 1;
         }
 
+        std::mem::swap(&mut self.prev, &mut self.curr);
         std::mem::swap(&mut self.curr, &mut self.next);
 
         self.next = self.ts.get(self.idx)
@@ -313,6 +391,14 @@ impl Parser {
                 let end_span = Span::new(self.curr.span.hi, self.curr.span.hi);
                 Token::new(TokenType::Invalid, end_span)
             });
+    }
+
+    fn curr_span_start(&self) -> FilePos {
+        self.curr.span.lo
+    }
+
+    fn span_since(&self, lo: FilePos) -> Span {
+        self.prev.span.hi - lo
     }
 
     pub fn has_errors(&self) -> bool {

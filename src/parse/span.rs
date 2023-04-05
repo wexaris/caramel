@@ -2,7 +2,7 @@
 
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span {
     pub lo: FilePos,
     pub hi: FilePos,
@@ -29,7 +29,7 @@ impl Display for Span {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FilePos {
     pub line: u32,
     pub col: u32,
