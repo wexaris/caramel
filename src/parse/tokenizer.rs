@@ -42,7 +42,7 @@ impl Tokenizer {
             let start = chars.pos_curr;
 
             // Identifier starts
-            if Self::is_ident_start(cc) {
+            if !self.is_ident && Self::is_ident_start(cc) {
                 self.is_ident = true;
                 self.ident_builder.push(cc);
                 self.span_start = start;
