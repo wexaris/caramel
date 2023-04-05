@@ -6,81 +6,82 @@ use self::result::*;
 
 pub struct TypeValidator {
     context: TypeStack,
+    error_count: u32,
+}
+
+macro_rules! print_err {
+    ( $validator:expr, $e:expr ) => {
+        match $e {
+            Ok(x) => x,
+            Err(e) => {
+                $validator.error_count += 1;
+                println!("{}", e);
+            }
+        }
+    }
 }
 
 impl TypeValidator {
     pub fn new() -> Self {
         Self {
             context: TypeStack::new(),
+            error_count: 0,
         }
     }
 
-    pub fn validate(&mut self, ast: &Root) -> Result<()> {
-        for stmt in &ast.stmt_list {
-            self.validate_stmt(stmt)?;
-        }
-        Ok(())
+    pub fn validate(&mut self, ast: &Root) {
+        self.validate_stmt_list(&ast.stmt_list);
     }
 
-    pub fn validate_stmt(&mut self, stmt: &Stmt) -> Result<()> {
+    fn validate_stmt_list(&mut self, stmt_list: &StmtList) {
+        self.push_scope();
+        for stmt in stmt_list {
+            self.validate_stmt(stmt);
+        }
+        self.pop_scope();
+    }
+
+    pub fn validate_stmt(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::Skip => {},
-            Stmt::Read(stmt) => self.validate_read(stmt)?,
-            Stmt::Write(stmt) => self.validate_write(stmt)?,
-            Stmt::If(stmt) => self.validate_if(stmt)?,
-            Stmt::While(stmt) => self.validate_while(stmt)?,
-            Stmt::Assign(stmt) => self.validate_assign(stmt)?,
+            Stmt::Read(stmt) => self.validate_read(stmt),
+            Stmt::Write(stmt) => self.validate_write(stmt),
+            Stmt::If(stmt) => self.validate_if(stmt),
+            Stmt::While(stmt) => self.validate_while(stmt),
+            Stmt::Assign(stmt) => self.validate_assign(stmt),
         }
-        Ok(())
     }
 
-    pub fn validate_read(&mut self, stmt: &ReadStmt) -> Result<()> {
+    pub fn validate_read(&mut self, stmt: &ReadStmt) {
         for id in &stmt.var_list {
             self.save(id, ValueType::Integer);
         }
-        Ok(())
     }
 
-    pub fn validate_write(&mut self, stmt: &WriteStmt) -> Result<()> {
+    pub fn validate_write(&mut self, stmt: &WriteStmt) {
         for id in &stmt.var_list {
-            self.validate_var(id, ValueType::Integer)?;
+            print_err!(self, self.validate_var(id, ValueType::Integer));
         }
-        Ok(())
     }
 
-    pub fn validate_if(&mut self, stmt: &IfStmt) -> Result<()> {
-        self.validate_expr(&stmt.check, ValueType::Boolean)?;
+    pub fn validate_if(&mut self, stmt: &IfStmt) {
+        print_err!(self, self.validate_expr(&stmt.check, ValueType::Boolean));
 
-        self.push_scope();
-        for stmt in &stmt.branch_true {
-            self.validate_stmt(stmt)?;
-        }
-        self.pop_scope();
+        self.validate_stmt_list(&stmt.branch_true);
 
         if let Some(branch_false) = &stmt.branch_false {
-            self.push_scope();
-            for stmt in branch_false {
-                self.validate_stmt(stmt)?;
-            }
-            self.pop_scope();
+            self.validate_stmt_list(branch_false);
         }
-        Ok(())
     }
 
-    pub fn validate_while(&mut self, stmt: &WhileStmt) -> Result<()> {
-        self.validate_expr(&stmt.check, ValueType::Boolean)?;
-        self.push_scope();
-        for stmt in &stmt.branch_true {
-            self.validate_stmt(stmt)?;
-        }
-        self.pop_scope();
-        Ok(())
+    pub fn validate_while(&mut self, stmt: &WhileStmt) {
+        print_err!(self, self.validate_expr(&stmt.check, ValueType::Boolean));
+        self.validate_stmt_list(&stmt.branch_true);
     }
 
-    pub fn validate_assign(&mut self, stmt: &AssignStmt) -> Result<()> {
-        self.validate_expr(&stmt.expr, ValueType::Integer)?;
+    pub fn validate_assign(&mut self, stmt: &AssignStmt) {
+        print_err!(self, self.validate_expr(&stmt.expr, ValueType::Integer));
         self.save(&stmt.id, ValueType::Integer);
-        Ok(())
     }
 
     pub fn validate_expr(&mut self, expr: &Expr, expected: ValueType) -> Result<()> {
@@ -131,7 +132,7 @@ impl TypeValidator {
         Ok(())
     }
 
-    fn validate_var(&mut self, id: &Ident, expected: ValueType) -> Result<()> {
+    pub fn validate_var(&mut self, id: &Ident, expected: ValueType) -> Result<()> {
         let found = self.find(id)?;
         if found != expected {
             return Err(Error::TypeMismatch(expected, found));
@@ -139,7 +140,7 @@ impl TypeValidator {
         Ok(())
     }
 
-    fn validate_literal(&mut self, lit: &Literal, expected: ValueType) -> Result<()> {
+    pub fn validate_literal(&mut self, lit: &Literal, expected: ValueType) -> Result<()> {
         if lit.get_type() != expected {
             return Err(Error::TypeMismatch(expected, lit.get_type()));
         }
@@ -151,12 +152,15 @@ impl TypeValidator {
     }
 
     fn find(&mut self, id: &Ident) -> Result<ValueType> {
-        self.context.find(&id.name)
-            .ok_or(Error::UndeclaredIdent(id.clone()))
+        self.context.find(&id.name).ok_or(Error::UndeclaredIdent(id.clone()))
     }
 
     fn push_scope(&mut self) { self.context.push(); }
     fn pop_scope(&mut self)  { self.context.pop();  }
+
+    pub fn has_errors(&self) -> bool {
+        self.error_count != 0
+    }
 }
 
 #[derive(Debug, Clone)]

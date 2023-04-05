@@ -39,8 +39,9 @@ fn main() {
 
     // Validate
     let mut validator = TypeValidator::new();
-    if let Err(e) = validator.validate(&ast) {
-        println!("{}", e);
+    validator.validate(&ast);
+
+    if validator.has_errors() {
         println!("\nValidation failed; input invalid!");
         return;
     }
