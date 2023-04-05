@@ -95,7 +95,7 @@ impl TypeValidator {
                             return Err(Error::TypeMismatch(expected, ValueType::Boolean))
                         }
                     }
-                    _ => return Err(Error::InternalError("unexpected operator in Expr::UnaryOp".to_string())),
+                    _ => return Err(Error::InternalError("invalid operator in Expr::UnaryOp".to_string())),
                 }
             }
             Expr::BinaryOp(op, lhs, rhs) => {
@@ -124,7 +124,7 @@ impl TypeValidator {
                             return Err(Error::TypeMismatch(expected, ValueType::Boolean))
                         }
                     }
-                    _ => return Err(Error::InternalError("unexpected operator in Expr::BinaryOp".to_string())),
+                    _ => return Err(Error::InternalError("invalid operator in Expr::BinaryOp".to_string())),
                 }
             }
         }

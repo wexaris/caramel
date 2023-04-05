@@ -9,7 +9,7 @@ use crate::parse::{Parser, Tokenizer};
 fn main() {
     let file = Path::new("input.txt");
     if !file.is_file() {
-        println!("Input file does not exist!");
+        println!("Input file does not exist! Make sure it's in the same directory!");
         return;
     }
 
