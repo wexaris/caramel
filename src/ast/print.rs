@@ -8,17 +8,32 @@ pub struct ASTPrinter {
 }
 
 impl ASTPrinter {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         ASTPrinter { level: 0, branches: vec![] }
     }
 
     pub fn print(&mut self, ast: &Root) {
-        self.write_and_push("Root");
-        for (idx, stmt) in ast.stmt_list.iter().enumerate() {
-            if idx + 1 == ast.stmt_list.len() as usize {
+        self.print_stmt_list(&ast.stmt_list, "Root");
+    }
+
+    fn print_stmt_list(&mut self, stmt_list: &StmtList, name: &str) {
+        self.write_and_push(name);
+        for (idx, stmt) in stmt_list.iter().enumerate() {
+            if idx + 1 == stmt_list.len() as usize {
                 self.mark_last();
             }
             self.print_stmt(stmt);
+        }
+        self.pop();
+    }
+
+    fn print_ident_list(&mut self, ident_list: &IdentList, name: &str) {
+        self.write_and_push(name);
+        for (idx, id) in ident_list.iter().enumerate() {
+            if idx + 1 == ident_list.len() as usize {
+                self.mark_last();
+            }
+            self.print_ident(id);
         }
         self.pop();
     }
@@ -39,25 +54,11 @@ impl ASTPrinter {
     }
 
     pub fn print_read(&mut self, stmt: &ReadStmt) {
-        self.write_and_push("Read");
-        for (idx, id) in stmt.var_list.iter().enumerate() {
-            if idx + 1 == stmt.var_list.len() as usize {
-                self.mark_last();
-            }
-            self.print_ident(id);
-        }
-        self.pop();
+        self.print_ident_list(&stmt.var_list, "Read");
     }
 
     pub fn print_write(&mut self, stmt: &WriteStmt) {
-        self.write_and_push("Write");
-        for (idx, id) in stmt.var_list.iter().enumerate() {
-            if idx + 1 == stmt.var_list.len() as usize {
-                self.mark_last();
-            }
-            self.print_ident(id);
-        }
-        self.pop();
+        self.print_ident_list(&stmt.var_list, "Write");
     }
 
     pub fn print_if(&mut self, stmt: &IfStmt) {
@@ -65,47 +66,22 @@ impl ASTPrinter {
 
         self.print_expr(stmt.check.as_ref());
 
-        self.write_and_push("If_True");
-        for (idx, s) in stmt.branch_true.iter().enumerate() {
-            if idx + 1 == stmt.branch_true.len() as usize {
-                self.mark_last();
-            }
-            self.print_stmt(s);
-        }
-        self.pop();
+        self.print_stmt_list(&stmt.branch_true, "If_True");
 
         self.mark_last();
 
-        self.write_and_push("If_False");
         if let Some(branch_false) = &stmt.branch_false {
-            for (idx, s) in branch_false.iter().enumerate() {
-                if idx + 1 == branch_false.len() as usize {
-                    self.mark_last();
-                }
-                self.print_stmt(s);
-            }
+            self.print_stmt_list(branch_false, "If_False");
         }
-        self.pop();
 
         self.pop();
     }
 
     pub fn print_while(&mut self, stmt: &WhileStmt) {
         self.write_and_push("While");
-
         self.print_expr(stmt.check.as_ref());
-
         self.mark_last();
-
-        self.write_and_push("While_True");
-        for (idx, s) in stmt.branch_true.iter().enumerate() {
-            if idx + 1 == stmt.branch_true.len() as usize {
-                self.mark_last();
-            }
-            self.print_stmt(s);
-        }
-        self.pop();
-
+        self.print_stmt_list(&stmt.branch_true, "While_True");
         self.pop();
     }
 
