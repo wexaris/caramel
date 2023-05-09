@@ -1,0 +1,33 @@
+READ x 
+READ y 
+LOOP( 
+  FETCH(y) 
+  STORE(eq_rhs1) 
+  FETCH(x) 
+  FETCH(eq_rhs1) 
+  EQ 
+  NEG 
+,  
+  FETCH(y) 
+  STORE(gt_rhs1) 
+  FETCH(x) 
+  FETCH(gt_rhs1) 
+  LE 
+  NEG 
+  BRANCH( 
+    FETCH(y) 
+    STORE(sub_rhs1) 
+    FETCH(x) 
+    FETCH(sub_rhs1) 
+    SUB 
+    STORE(x) 
+  ,  
+    FETCH(x) 
+    STORE(sub_rhs2) 
+    FETCH(y) 
+    FETCH(sub_rhs2) 
+    SUB 
+    STORE(y) 
+  ) 
+) 
+WRITE x 

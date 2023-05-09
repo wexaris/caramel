@@ -1,23 +1,12 @@
 
-read count;
+read x, y;
 
-n1 := 0;
-n2 := 1;
-
-if count >= 2 then
-    count := count - 2;
-    write n1, n2;
-else if count >= 1 then
-    count := count - 1;
-    write n1, n2;
-fi fi
-
-while count > 0 do
-    count := count - 1;
-
-    num := n1 + n2;
-    write num;
-
-    n1 := n2;
-    n2 := num;
+while x != y do
+    if x > y then
+        x := x - y
+    else
+        y := y - x
+    fi
 od
+
+write x;
