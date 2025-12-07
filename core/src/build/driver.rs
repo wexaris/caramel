@@ -1,4 +1,4 @@
-use crate::ast::ASTBuilder;
+use crate::ast::{ASTBuilder, PrintTree, TreePrinter};
 use crate::build::config::BuildConfig;
 use crate::parse::parser::SourceParser;
 use crate::parse::token::ListTokenizer;
@@ -25,7 +25,12 @@ impl BuildDriver {
             let parser = SourceParser::new(Box::new(tokenizer));
 
             let ast = parser.build_module();
-            println!("{}: {:?}", ast.origin, ast.stmts);
+
+            if self.config.write_ast {
+                let mut tp = TreePrinter::new();
+                ast.print_tree(&mut tp).expect("Failed to print AST");
+                println!("{}", tp.result());
+            }
         }
     }
 }
