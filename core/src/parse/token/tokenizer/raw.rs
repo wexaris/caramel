@@ -18,14 +18,14 @@ impl RawTokenizer {
 
     /// Returns the source origin.
     #[inline]
-    pub fn get_origin(&self) -> &Rc<dyn CodeSource> {
-        self.reader.get_origin()
+    pub fn origin(&self) -> &Rc<dyn CodeSource> {
+        self.reader.origin()
     }
 
     /// Returns the current position within the source.
     #[inline]
     pub fn get_pos(&self) -> &SourcePos {
-        self.reader.get_pos()
+        self.reader.position()
     }
 
     /// Parses and returns the next token from the source.
@@ -94,7 +94,7 @@ impl RawTokenizer {
     }
 
     fn tokenize_keyword_or_ident(&mut self) -> Option<Token> {
-        let start_pos = self.reader.get_pos().clone();
+        let start_pos = self.reader.position().clone();
 
         if Self::is_ident_start(self.reader.curr) {
             self.reader.bump();
@@ -104,7 +104,7 @@ impl RawTokenizer {
             }
 
             let span = self.get_span_from(&start_pos);
-            let raw_str = span.get_raw_str();
+            let raw_str = span.raw_str();
             let token_type = keywords::try_get_keyword(&raw_str).unwrap_or(TokenType::Ident);
             return Some(Token::new(token_type, span));
         }
@@ -113,7 +113,7 @@ impl RawTokenizer {
     }
 
     fn tokenize_number(&mut self) -> Option<Token> {
-        let start_pos = self.reader.get_pos().clone();
+        let start_pos = self.reader.position().clone();
 
         if Self::is_digit(self.reader.curr) {
             while Self::is_digit(self.reader.curr) {
@@ -128,7 +128,7 @@ impl RawTokenizer {
     }
 
     fn tokenize_symbol(&mut self) -> Option<Token> {
-        let start_pos = self.reader.get_pos().clone();
+        let start_pos = self.reader.position().clone();
 
         let token_type = match self.reader.curr {
             b'.' => {
@@ -244,7 +244,7 @@ impl RawTokenizer {
     }
 
     fn get_span_from(&self, start: &SourcePos) -> Span {
-        Span::from_range(&start, &self.reader.get_pos())
+        Span::from_range(&start, &self.reader.position())
     }
 
     fn is_whitespace(c: u8) -> bool {
@@ -276,6 +276,6 @@ mod tests {
         let src = Rc::new("source") as Rc<dyn CodeSource>;
         let tokenizer = RawTokenizer::new(SourceReader::new(src.clone()));
 
-        assert!(Rc::ptr_eq(tokenizer.get_origin(), &src));
+        assert!(Rc::ptr_eq(tokenizer.origin(), &src));
     }
 }

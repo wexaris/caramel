@@ -41,7 +41,7 @@ impl Span {
         Self::from_start(start, end.idx - start.idx)
     }
 
-    pub fn get_pos(&self) -> SourcePos {
+    pub fn position(&self) -> SourcePos {
         SourcePos {
             origin: self.origin.clone(),
             idx: self.idx,
@@ -50,14 +50,14 @@ impl Span {
         }
     }
 
-    pub fn get_pos_after(&self) -> SourcePos {
-        let mut pos = self.get_pos();
+    pub fn next_position(&self) -> SourcePos {
+        let mut pos = self.position();
         pos.idx += self.len;
         pos.col += self.len;
         pos
     }
 
-    pub fn get_raw_str(&self) -> &str {
+    pub fn raw_str(&self) -> &str {
         self.origin.get_substr(self.idx, self.len)
     }
 }

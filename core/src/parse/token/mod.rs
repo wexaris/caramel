@@ -26,7 +26,7 @@ impl Token {
     /// Get the raw bytes used to construct this token.
     #[inline]
     pub fn get_raw(&self) -> &str {
-        let source_bytes = self.span.origin.get_bytes();
+        let source_bytes = self.span.origin.source_bytes();
         let token_bytes = &source_bytes[self.span.idx..self.span.idx + self.span.len];
         str::from_utf8(token_bytes).expect("Invalid UTF-8 in token source")
     }
@@ -40,6 +40,6 @@ impl Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", self.token_type, self.span.get_pos())
+        write!(f, "{} ({})", self.token_type, self.span.position())
     }
 }

@@ -85,7 +85,7 @@ impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
             }
         }
         Module {
-            origin: self.tokenizer.get_origin().clone(),
+            origin: self.tokenizer.origin().clone(),
             stmts,
         }
     }
@@ -151,7 +151,7 @@ impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
 
     fn parse_literal(&mut self) -> Option<Expr> {
         let tok = expect!(self, TokenType::Literal(_))?;
-        let val = i32::from_str(tok.span.get_raw_str()).expect("Invalid integer literal");
+        let val = i32::from_str(tok.span.raw_str()).expect("Invalid integer literal");
         Some(Expr::Lit(Literal::Integer(val)))
     }
 }

@@ -33,7 +33,7 @@ impl ListTokenizer {
         self.token_list.get(idx).cloned().unwrap_or_else(|| {
             let span = self.token_list.get(idx - 1).map_or_else(
                 || Span::new(self.token_list.origin.clone(), 0, 0, 1, 1),
-                |t| Span::from_start(&t.span.get_pos_after(), 0),
+                |t| Span::from_start(&t.span.next_position(), 0),
             );
             Token::new(TokenType::Eof, span)
         })
@@ -44,7 +44,7 @@ impl Tokenizer for ListTokenizer {
     type Pin = ScopedTokenListReaderPin;
 
     #[inline]
-    fn get_origin(&self) -> &Rc<dyn CodeSource> {
+    fn origin(&self) -> &Rc<dyn CodeSource> {
         &self.token_list.origin
     }
 
@@ -72,7 +72,7 @@ impl Tokenizer for ListTokenizer {
         debug!(
             "TokenListReader.push_pin pin_stack[{}] @{}",
             self.pin_stack.borrow().len(),
-            self.get_token(self.index).span.get_pos()
+            self.get_token(self.index).span.position()
         );
         self.pin_stack.borrow_mut().push(self.index);
         ScopedTokenListReaderPin::new(self)
@@ -86,7 +86,7 @@ impl Tokenizer for ListTokenizer {
         debug!(
             "TokenListReader.pop_pin pin_stack[{}] @{}",
             self.pin_stack.borrow().len() - 1,
-            self.get_token(self.index).span.get_pos()
+            self.get_token(self.index).span.position()
         );
         self.index = self.pin_stack.borrow_mut().pop().unwrap();
     }
@@ -99,7 +99,7 @@ impl Tokenizer for ListTokenizer {
         debug!(
             "TokenListReader.ack_pin pin_stack[{}] @{}",
             self.pin_stack.borrow().len() - 1,
-            self.get_token(self.index).span.get_pos()
+            self.get_token(self.index).span.position()
         );
         self.pin_stack.borrow_mut().pop();
     }

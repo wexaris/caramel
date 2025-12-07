@@ -7,22 +7,22 @@ use std::path::Path;
 
 pub trait CodeSource: Debug {
     /// Returns the type of the source.
-    fn get_type(&self) -> CodeSourceType<'_>;
+    fn source_type(&self) -> CodeSourceType<'_>;
 
     /// Returns the raw bytes of the source.
-    fn get_bytes(&self) -> &[u8];
+    fn source_bytes(&self) -> &[u8];
 
     /// Returns a substring of the source.
     fn get_substr(&self, start: usize, len: usize) -> &str {
         assert!(
-            start <= self.get_bytes().len(),
+            start <= self.source_bytes().len(),
             "substring index out of bounds"
         );
         assert!(
-            start + len <= self.get_bytes().len(),
+            start + len <= self.source_bytes().len(),
             "substring length out of bounds"
         );
-        let bytes = &self.get_bytes()[start..start + len];
+        let bytes = &self.source_bytes()[start..start + len];
         std::str::from_utf8(bytes).unwrap()
     }
 }
@@ -35,7 +35,7 @@ pub enum CodeSourceType<'a> {
 
 impl Display for dyn CodeSource {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get_type())
+        write!(f, "{}", self.source_type())
     }
 }
 

@@ -7,6 +7,7 @@ use crate::source::code_source::CodeSource;
 use crate::source::reader::SourceReader;
 use log::debug;
 use std::cell::RefCell;
+use std::ops::DerefMut;
 use std::rc::Rc;
 
 /// Tokenizer that tokenizes source code in a sequential fashion.
@@ -33,12 +34,12 @@ impl Tokenizer for LiveTokenizer {
     type Pin = ScopedTokenLiveReaderPin;
 
     #[inline]
-    fn get_origin(&self) -> &Rc<dyn CodeSource> {
-        &self.raw.get_origin()
+    fn origin(&self) -> &Rc<dyn CodeSource> {
+        &self.raw.origin()
     }
 
     fn tokenize_all(mut self) -> TokenList {
-        let mut token_list = TokenList::new(self.raw.get_origin().clone());
+        let mut token_list = TokenList::new(self.raw.origin().clone());
 
         loop {
             match self.next() {
@@ -74,10 +75,14 @@ impl Tokenizer for LiveTokenizer {
         match &self.tmp_next {
             Some((_, token)) => token.clone(),
             None => {
+                // Pin the current tokenizer position to prevent it from advancing.
                 self.push_pin();
+
                 let token = self.next_token();
                 let tokenizer = self.raw.clone();
                 self.tmp_next = Some((tokenizer, token.clone()));
+
+                // Unpin the previous tokenizer position.
                 self.pop_pin();
                 token
             }
@@ -194,7 +199,7 @@ mod tests {
         let source = Rc::new("source") as Rc<dyn CodeSource>;
         let tokenizer = LiveTokenizer::new(SourceReader::new(source.clone()));
 
-        assert!(Rc::ptr_eq(tokenizer.raw.get_origin(), &source));
+        assert!(Rc::ptr_eq(tokenizer.raw.origin(), &source));
         assert!(tokenizer.pin_stack.borrow().is_empty());
     }
 

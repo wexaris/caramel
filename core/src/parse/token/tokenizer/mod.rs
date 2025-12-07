@@ -11,7 +11,7 @@ pub trait Tokenizer: Sized {
     type Pin;
 
     /// Returns the origin code source being tokenized.
-    fn get_origin(&self) -> &Rc<dyn CodeSource>;
+    fn origin(&self) -> &Rc<dyn CodeSource>;
 
     /// Returns all the tokens from the source.
     /// The returned list is guaranteed to end with an `Eof` token.

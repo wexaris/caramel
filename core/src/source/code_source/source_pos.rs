@@ -23,7 +23,7 @@ impl SourcePos {
 
 impl Display for SourcePos {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.origin.get_type() {
+        match self.origin.source_type() {
             CodeSourceType::File(filepath) => {
                 write!(f, "{}:{}:{}", filepath.display(), self.line, self.col)
             }

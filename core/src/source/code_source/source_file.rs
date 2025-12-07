@@ -22,10 +22,10 @@ impl SourceFile {
 }
 
 impl CodeSource for SourceFile {
-    fn get_type(&self) -> CodeSourceType<'_> {
+    fn source_type(&self) -> CodeSourceType<'_> {
         CodeSourceType::File(self.filepath.as_path())
     }
-    fn get_bytes(&self) -> &[u8] {
+    fn source_bytes(&self) -> &[u8] {
         &self.content
     }
 }

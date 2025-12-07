@@ -1,7 +1,7 @@
 use crate::parse::token::Token;
 use crate::source::code_source::CodeSource;
 use std::fmt::Display;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -17,14 +17,6 @@ impl TokenList {
             tokens: Vec::new(),
         }
     }
-
-    pub fn push(&mut self, token: Token) {
-        self.tokens.push(token);
-    }
-
-    pub fn len(&self) -> usize {
-        self.tokens.len()
-    }
 }
 
 impl IntoIterator for TokenList {
@@ -36,9 +28,15 @@ impl IntoIterator for TokenList {
 }
 
 impl Deref for TokenList {
-    type Target = [Token];
+    type Target = Vec<Token>;
     fn deref(&self) -> &Self::Target {
         &self.tokens
+    }
+}
+
+impl DerefMut for TokenList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.tokens
     }
 }
 

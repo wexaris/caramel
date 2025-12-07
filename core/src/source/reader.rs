@@ -15,28 +15,28 @@ impl SourceReader {
     pub fn new(origin: Rc<dyn CodeSource>) -> Self {
         Self {
             prev: 0,
-            curr: origin.get_bytes().get(0).cloned().unwrap_or(0),
-            next: origin.get_bytes().get(1).cloned().unwrap_or(0),
+            curr: origin.source_bytes().get(0).cloned().unwrap_or(0),
+            next: origin.source_bytes().get(1).cloned().unwrap_or(0),
             pos: SourcePos::new(origin, 0, 1, 1),
         }
     }
 
     /// Returns the source origin.
     #[inline]
-    pub fn get_origin(&self) -> &Rc<dyn CodeSource> {
+    pub fn origin(&self) -> &Rc<dyn CodeSource> {
         &self.pos.origin
     }
 
     /// Returns the current position within the source.
     #[inline]
-    pub fn get_pos(&self) -> &SourcePos {
+    pub fn position(&self) -> &SourcePos {
         &self.pos
     }
 
     /// Returns true if the reader is at the end of the source.
     #[inline]
     pub fn is_eof(&self) -> bool {
-        self.pos.idx == self.pos.origin.get_bytes().len()
+        self.pos.idx == self.pos.origin.source_bytes().len()
     }
 
     /// Advances the tokenizer by one symbol.
@@ -45,7 +45,7 @@ impl SourceReader {
         if self.is_eof() {
             assert_eq!(
                 self.pos.idx,
-                self.pos.origin.get_bytes().len(),
+                self.pos.origin.source_bytes().len(),
                 "SourceReader.index should be the source length at EOF"
             );
             assert_ne!(self.prev, 0, "SourceReader.prev should not be 0 at EOF");
@@ -74,7 +74,7 @@ impl SourceReader {
     /// Advances the tokenizer by one character without tracking position.
     fn bump_index(&mut self) {
         assert!(
-            self.pos.idx < self.pos.origin.get_bytes().len(),
+            self.pos.idx < self.pos.origin.source_bytes().len(),
             "SourceReader.index bumping past source length"
         );
 
@@ -88,7 +88,7 @@ impl SourceReader {
 
     /// Returns the byte at the given index.
     fn get_byte_at(&self, index: usize) -> u8 {
-        let bytes = self.pos.origin.get_bytes();
+        let bytes = self.pos.origin.source_bytes();
         bytes.get(index).cloned().unwrap_or(0)
     }
 }
@@ -205,7 +205,7 @@ mod tests {
     }
 
     fn validate_position(reader: &SourceReader, newline: &str) {
-        let source_bytes = reader.pos.origin.get_bytes();
+        let source_bytes = reader.pos.origin.source_bytes();
         let current_source_bytes = &source_bytes[..reader.pos.idx];
 
         let line_count = current_source_bytes
