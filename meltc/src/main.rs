@@ -8,9 +8,7 @@ fn main() {
         .join("test")
         .join("input.car");
 
-    let config = BuildConfig::new()
-        .input_file(input)
-        .write_ast(true);
+    let config = BuildConfig::new().input_file(input).write_ast(true);
 
     let driver = BuildDriver::new(config);
 

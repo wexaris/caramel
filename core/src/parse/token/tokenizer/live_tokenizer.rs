@@ -7,7 +7,6 @@ use crate::source::code_source::CodeSource;
 use crate::source::reader::SourceReader;
 use log::debug;
 use std::cell::RefCell;
-use std::ops::DerefMut;
 use std::rc::Rc;
 
 /// Tokenizer that tokenizes source code in a sequential fashion.

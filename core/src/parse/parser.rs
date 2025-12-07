@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::token::{Token, TokenType, Tokenizer};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -8,51 +9,6 @@ pub struct SourceParser<TokPin, T: Tokenizer<Pin = TokPin>> {
     tokenizer: Box<T>,
     curr: Token,
     next: Token,
-}
-
-macro_rules! expect {
-    ( $this:ident, $( $ex:ident ).+ ) => {
-        match $this.curr.token_type == $( $ex ).+ {
-            true => Some($this.bump()),
-            _ => None,
-        }
-    };
-    ( $this:ident, $pattern:pat $(if $guard:expr)? $(,)? ) => {
-        match $this.curr.token_type {
-            $pattern $(if $guard)? => Some($this.bump()),
-            _ => None,
-        }
-    };
-}
-
-macro_rules! consume {
-    ( $this:ident, $( $ex:ident ).+ ) => {
-        match $this.curr.token_type == $( $ex ).+ {
-            true => {
-                $this.bump();
-                true
-            },
-            _ => false,
-        }
-    };
-    ( $this:ident, [ $( $ex:expr ),+ ] ) => {
-        match [ $( $ex ),+ ].contains(&$this.curr.token_type) {
-            true => {
-                $this.bump();
-                true
-            },
-            _ => false,
-        }
-    };
-    ( $this:ident, $pattern:pat $(if $guard:expr)? $(,)? ) => {
-        match $this.curr.token_type {
-            $pattern $(if $guard)? => {
-                $this.bump();
-                true
-            },
-            _ => false,
-        }
-    };
 }
 
 impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
@@ -74,11 +30,11 @@ impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
         let mut stmts = vec![];
         while !self.curr.is_eof() {
             match self.parse_stmt() {
-                Some(stmt) => {
+                Ok(stmt) => {
                     stmts.push(stmt);
-                },
-                None => {
-                    println!("PARSE FAILED");
+                }
+                Err(e) => {
+                    println!("{e}");
                     // TODO: Error recovery
                     break;
                 }
@@ -90,69 +46,66 @@ impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
         }
     }
 
-    fn parse_stmt(&mut self) -> Option<Rc<RefCell<Stmt>>> {
+    fn parse_stmt(&mut self) -> ParseResult<Rc<RefCell<Stmt>>> {
         let expr = self.parse_expr()?;
         expect!(self, TokenType::Semicolon)?;
-        Some(Rc::new(RefCell::new(Stmt::Expr(expr))))
+        Ok(Rc::new(RefCell::new(Stmt::Expr(expr))))
     }
 
-    fn parse_expr(&mut self) -> Option<Rc<RefCell<Expr>>> {
+    fn parse_expr(&mut self) -> ParseResult<Rc<RefCell<Expr>>> {
         let expr = match &self.curr.token_type {
             TokenType::Ident => self.parse_func_call()?,
             TokenType::Literal(_) => self.parse_literal()?,
-            _ => return None,
+            // TODO: Use a list of valid expression tokens for expected tokens
+            _ => return Err(ParseError::UnexpectedToken(self.curr.clone(), vec![])),
         };
-        Some(Rc::new(RefCell::new(expr)))
+        Ok(Rc::new(RefCell::new(expr)))
     }
 
-    fn parse_func_call(&mut self) -> Option<Expr> {
+    fn parse_func_call(&mut self) -> ParseResult<Expr> {
         let id = self.parse_ident()?;
         let args = self.parse_func_args()?;
-        Some(Expr::FuncCall { id, args })
+        Ok(Expr::FuncCall { id, args })
     }
 
-    fn parse_func_args(&mut self) -> Option<Vec<Rc<RefCell<Expr>>>> {
-        match consume!(self, TokenType::ParenOpen) {
-            true => {
-                let args = self.parse_sequence(Self::parse_expr, TokenType::Comma)?;
-                expect!(self, TokenType::ParenClose)?;
-                Some(args)
-            }
-            false => None,
-        }
+    fn parse_func_args(&mut self) -> ParseResult<Vec<Rc<RefCell<Expr>>>> {
+        expect!(self, TokenType::ParenOpen)?;
+        let args = self.parse_sequence(Self::parse_expr, TokenType::Comma)?;
+        expect!(self, TokenType::ParenClose)?;
+        Ok(args)
     }
 
     fn parse_sequence(
         &mut self,
-        mut parse_item: impl FnMut(&mut Self) -> Option<Rc<RefCell<Expr>>>,
+        mut parse_item: impl FnMut(&mut Self) -> ParseResult<Rc<RefCell<Expr>>>,
         sep: TokenType,
-    ) -> Option<Vec<Rc<RefCell<Expr>>>> {
+    ) -> ParseResult<Vec<Rc<RefCell<Expr>>>> {
         let mut args = vec![];
         loop {
             match parse_item(self) {
-                Some(item) => {
+                Ok(item) => {
                     args.push(item);
 
                     if !consume!(self, sep) {
                         break;
                     }
                 }
-                None => break,
+                Err(_) => break,
             }
         }
-        Some(args)
+        Ok(args)
     }
 
-    fn parse_ident(&mut self) -> Option<Ident> {
+    fn parse_ident(&mut self) -> ParseResult<Ident> {
         let tok = expect!(self, TokenType::Ident)?;
         let name = tok.get_raw().to_owned();
-        Some(Ident { name })
+        Ok(Ident { name })
     }
 
-    fn parse_literal(&mut self) -> Option<Expr> {
+    fn parse_literal(&mut self) -> ParseResult<Expr> {
         let tok = expect!(self, TokenType::Literal(_))?;
         let val = i32::from_str(tok.span.raw_str()).expect("Invalid integer literal");
-        Some(Expr::Lit(Literal::Integer(val)))
+        Ok(Expr::Lit(Literal::Integer(val)))
     }
 }
 
