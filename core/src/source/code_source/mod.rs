@@ -2,6 +2,7 @@ pub mod source_file;
 pub mod source_pos;
 pub mod source_str;
 
+use crate::parse::span::Span;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
 
@@ -24,6 +25,11 @@ pub trait CodeSource: Debug {
         );
         let bytes = &self.source_bytes()[start..start + len];
         std::str::from_utf8(bytes).unwrap()
+    }
+
+    /// Returns a substring of the source based on a span.
+    fn get_substr_from_span(&self, span: &Span) -> &str {
+        self.get_substr(span.idx, span.len)
     }
 }
 

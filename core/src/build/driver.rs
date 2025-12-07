@@ -21,7 +21,7 @@ impl BuildDriver {
         for input in self.config.input_files {
             let source_file = Rc::new(SourceFile::read(input).unwrap());
             let source_reader = SourceReader::new(source_file);
-            let tokenizer = ListTokenizer::new(source_reader);
+            let tokenizer = ListTokenizer::from_source(source_reader);
             let parser = SourceParser::new(Box::new(tokenizer));
 
             let ast = parser.build_module();

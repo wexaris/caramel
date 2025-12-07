@@ -1,23 +1,29 @@
 use crate::ast::*;
 use crate::parse::error::{ParseError, ParseResult};
 use crate::parse::token::{Token, TokenType, Tokenizer};
+use crate::source::code_source::CodeSource;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::str::FromStr;
 
-pub struct SourceParser<TokPin, T: Tokenizer<Pin = TokPin>> {
+pub struct SourceParser<T: Tokenizer> {
     tokenizer: Box<T>,
     curr: Token,
     next: Token,
 }
 
-impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
+impl<T: Tokenizer> SourceParser<T> {
     pub fn new(mut tokenizer: Box<T>) -> Self {
         Self {
             curr: tokenizer.next_token(),
             next: tokenizer.peek_token(),
             tokenizer,
         }
+    }
+
+    #[inline]
+    fn origin(&self) -> &Rc<dyn CodeSource> {
+        self.tokenizer.origin()
     }
 
     fn bump(&mut self) -> Token {
@@ -98,19 +104,159 @@ impl<TokPin, T: Tokenizer<Pin = TokPin>> SourceParser<TokPin, T> {
 
     fn parse_ident(&mut self) -> ParseResult<Ident> {
         let tok = expect!(self, TokenType::Ident)?;
-        let name = tok.get_raw().to_owned();
-        Ok(Ident { name })
+        let raw_str = self.origin().get_substr_from_span(&tok.span);
+        Ok(Ident {
+            name: raw_str.to_owned(),
+        })
     }
 
     fn parse_literal(&mut self) -> ParseResult<Expr> {
         let tok = expect!(self, TokenType::Literal(_))?;
-        let val = i32::from_str(tok.span.raw_str()).expect("Invalid integer literal");
+        let raw_str = self.origin().get_substr_from_span(&tok.span);
+        let val = i32::from_str(raw_str).expect("Invalid integer literal");
         Ok(Expr::Lit(Literal::Integer(val)))
     }
 }
 
-impl<TokPin, T: Tokenizer<Pin = TokPin>> ASTBuilder for SourceParser<TokPin, T> {
+impl<T: Tokenizer> ASTBuilder for SourceParser<T> {
     fn build_module(mut self) -> Module {
         self.parse_module()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::parse::error::ParseError;
+    use crate::parse::parser::SourceParser;
+    use crate::parse::token::{Literal, MockTokenizer, TokenType};
+
+    #[test]
+    fn expect_field_value() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Fn]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Match exact token
+        let res = expect!(parser, TokenType::Fn);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().token_type, TokenType::Fn);
+
+        // Next is EOF
+        assert_eq!(parser.curr.token_type, TokenType::Eof);
+    }
+
+    #[test]
+    fn expect_expr_list() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Plus, TokenType::Minus]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Match one of the list (Plus)
+        let res = expect!(parser, [TokenType::Minus, TokenType::Plus]);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().token_type, TokenType::Plus);
+
+        // Match one of the list (Minus)
+        let res = expect!(parser, [TokenType::Minus, TokenType::Plus]);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().token_type, TokenType::Minus);
+    }
+
+    #[test]
+    fn expect_pattern() {
+        let tokenizer = MockTokenizer::new(vec![
+            TokenType::Literal(Literal::Integer),
+            TokenType::Literal(Literal::String),
+        ]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Match pattern ignoring inner value
+        let res = expect!(parser, TokenType::Literal(_));
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap().token_type,
+            TokenType::Literal(Literal::Integer)
+        );
+
+        let res = expect!(parser, TokenType::Literal(_));
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().token_type, TokenType::Literal(Literal::String));
+    }
+
+    #[test]
+    fn expect_pattern_guarded() {
+        let tokenizer = MockTokenizer::new(vec![
+            TokenType::Literal(Literal::Bool(true)),
+            TokenType::Literal(Literal::Bool(false)),
+        ]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Match only if bool is true
+        let res = expect!(parser, TokenType::Literal(Literal::Bool(b)) if b);
+        assert!(res.is_ok());
+
+        // Next is false, so guard should fail pattern match, resulting in an error
+        let res = expect!(parser, TokenType::Literal(Literal::Bool(b)) if b);
+        assert!(res.is_err());
+        assert!(matches!(
+            res.unwrap_err(),
+            ParseError::UnexpectedToken(_, _)
+        ));
+    }
+
+    #[test]
+    fn expect_invalid_symbol() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Unknown]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        let res = expect!(parser, TokenType::Fn);
+        assert!(res.is_err());
+        assert!(matches!(res.unwrap_err(), ParseError::InvalidSymbol(_, _)));
+    }
+
+    #[test]
+    fn expect_unexpected_token() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Var]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        let res = expect!(parser, TokenType::Fn);
+        assert!(res.is_err());
+
+        match res.err() {
+            Some(ParseError::UnexpectedToken(tok, expected)) => {
+                assert_eq!(tok.token_type, TokenType::Var);
+                assert_eq!(expected[0], "TokenType::Fn");
+            }
+            Some(err) => panic!("Unexpected error type: {err}"),
+            None => panic!("Unexpected None error"),
+        }
+    }
+
+    #[test]
+    fn expect_unexpected_eof() {
+        let tokenizer = MockTokenizer::new(vec![]); // Immediately EOF
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        let res = expect!(parser, TokenType::Fn);
+        assert!(res.is_err());
+        assert!(matches!(res.unwrap_err(), ParseError::UnexpectedEof(_)));
+    }
+
+    #[test]
+    fn consume_matches() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Semicolon]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Should return true and advance
+        assert!(consume!(parser, TokenType::Semicolon));
+        assert_eq!(parser.curr.token_type, TokenType::Eof);
+    }
+
+    #[test]
+    fn consume_mismatches() {
+        let tokenizer = MockTokenizer::new(vec![TokenType::Var]);
+        let mut parser = SourceParser::new(Box::new(tokenizer));
+
+        // Should return false and NOT advance
+        assert!(!consume!(parser, TokenType::Fn));
+        assert_eq!(parser.curr.token_type, TokenType::Var);
     }
 }

@@ -104,7 +104,7 @@ impl RawTokenizer {
             }
 
             let span = self.get_span_from(&start_pos);
-            let raw_str = span.raw_str();
+            let raw_str = self.origin().get_substr_from_span(&span);
             let token_type = keywords::try_get_keyword(&raw_str).unwrap_or(TokenType::Ident);
             return Some(Token::new(token_type, span));
         }

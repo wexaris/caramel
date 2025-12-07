@@ -7,9 +7,10 @@ pub mod list_tokenizer;
 pub mod live_tokenizer;
 pub mod raw;
 
-pub trait Tokenizer: Sized {
-    type Pin;
+#[cfg(test)]
+pub mod mock_tokenizer;
 
+pub trait Tokenizer: Sized {
     /// Returns the origin code source being tokenized.
     fn origin(&self) -> &Rc<dyn CodeSource>;
 
@@ -28,7 +29,7 @@ pub trait Tokenizer: Sized {
 
     /// Pins the current tokenizer position in case of backtracking.
     /// The tokenizer position is restored when the `TokenIter` is dropped.
-    fn push_pin(&mut self) -> Self::Pin;
+    fn push_pin(&mut self) -> impl Drop + 'static;
 
     /// Restores the tokenizer position from the last `push_pin()` call.
     fn pop_pin(&mut self);

@@ -8,6 +8,9 @@ pub use crate::parse::token::{
     tokenizer::live_tokenizer::LiveTokenizer, tokenizer::raw::RawTokenizer, r#type::*,
 };
 
+#[cfg(test)]
+pub use tokenizer::mock_tokenizer::MockTokenizer;
+
 use crate::parse::span::Span;
 use std::fmt::{Display, Formatter};
 
@@ -23,18 +26,16 @@ impl Token {
         Self { token_type, span }
     }
 
-    /// Get the raw bytes used to construct this token.
-    #[inline]
-    pub fn get_raw(&self) -> &str {
-        let source_bytes = self.span.origin.source_bytes();
-        let token_bytes = &source_bytes[self.span.idx..self.span.idx + self.span.len];
-        str::from_utf8(token_bytes).expect("Invalid UTF-8 in token source")
-    }
-
     /// Returns true if this token represents the end of the source file.
     #[inline]
     pub fn is_eof(&self) -> bool {
         self.token_type == TokenType::Eof
+    }
+
+    /// Returns true if this token comes from an unrecognized symbol.
+    #[inline]
+    pub fn is_invalid(&self) -> bool {
+        self.token_type == TokenType::Unknown
     }
 }
 

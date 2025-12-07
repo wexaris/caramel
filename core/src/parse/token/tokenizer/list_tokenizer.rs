@@ -20,29 +20,37 @@ pub struct ListTokenizer {
 }
 
 impl ListTokenizer {
-    pub fn new(reader: SourceReader) -> Self {
+    pub fn new(token_list: TokenList) -> Self {
         Self {
-            token_list: LiveTokenizer::new(reader).tokenize_all(),
+            token_list,
             index: 0,
             pin_stack: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
+    pub fn from_source(reader: SourceReader) -> Self {
+        Self::new(LiveTokenizer::new(reader).tokenize_all())
+    }
+
     fn get_token(&self, idx: usize) -> Token {
         assert!(idx <= self.token_list.len());
-        self.token_list.get(idx).cloned().unwrap_or_else(|| {
-            let span = self.token_list.get(idx - 1).map_or_else(
-                || Span::new(self.token_list.origin.clone(), 0, 0, 1, 1),
-                |t| Span::from_start(&t.span.next_position(), 0),
-            );
-            Token::new(TokenType::Eof, span)
-        })
+        self.token_list
+            .get(idx)
+            .cloned()
+            .unwrap_or_else(|| match idx {
+                0 => Token::new(TokenType::Eof, Span::default()),
+                _ => {
+                    let span = self.token_list.get(idx - 1).map_or_else(
+                        || Span::default(),
+                        |t| Span::from_start(&t.span.next_position(), 0),
+                    );
+                    Token::new(TokenType::Eof, span)
+                }
+            })
     }
 }
 
 impl Tokenizer for ListTokenizer {
-    type Pin = ScopedTokenListReaderPin;
-
     #[inline]
     fn origin(&self) -> &Rc<dyn CodeSource> {
         &self.token_list.origin
@@ -68,14 +76,14 @@ impl Tokenizer for ListTokenizer {
         token
     }
 
-    fn push_pin(&mut self) -> Self::Pin {
+    fn push_pin(&mut self) -> impl Drop + 'static {
         debug!(
             "TokenListReader.push_pin pin_stack[{}] @{}",
             self.pin_stack.borrow().len(),
             self.get_token(self.index).span.position()
         );
         self.pin_stack.borrow_mut().push(self.index);
-        ScopedTokenListReaderPin::new(self)
+        ScopedTokenizerIndexPin::new(self)
     }
 
     fn pop_pin(&mut self) {
@@ -114,22 +122,21 @@ impl Iterator for ListTokenizer {
 }
 
 /// A scope guard that commits the tokenizer position when the end of the scope is reached.
-pub struct ScopedTokenListReaderPin {
-    pin_stack: Rc<RefCell<Vec<usize>>>,
-    pinned_idx: usize,
+pub struct ScopedTokenizerIndexPin {
+    pub pin_stack: Rc<RefCell<Vec<usize>>>,
+    pub pinned_idx: usize,
 }
 
-impl ScopedTokenListReaderPin {
+impl ScopedTokenizerIndexPin {
     pub fn new(iter: &ListTokenizer) -> Self {
-        let pin_stack = iter.pin_stack.clone();
         Self {
-            pin_stack,
+            pin_stack: iter.pin_stack.clone(),
             pinned_idx: iter.index,
         }
     }
 }
 
-impl Drop for ScopedTokenListReaderPin {
+impl Drop for ScopedTokenizerIndexPin {
     fn drop(&mut self) {
         let mut pin_stack = self.pin_stack.borrow_mut();
         assert!(

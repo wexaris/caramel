@@ -30,8 +30,6 @@ impl LiveTokenizer {
 }
 
 impl Tokenizer for LiveTokenizer {
-    type Pin = ScopedTokenLiveReaderPin;
-
     #[inline]
     fn origin(&self) -> &Rc<dyn CodeSource> {
         &self.raw.origin()
@@ -88,7 +86,7 @@ impl Tokenizer for LiveTokenizer {
         }
     }
 
-    fn push_pin(&mut self) -> Self::Pin {
+    fn push_pin(&mut self) -> impl Drop + 'static {
         debug!(
             "TokenLiveReader.push_pin pin_stack[{}] : {}",
             self.pin_stack.borrow().len(),
@@ -215,7 +213,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 0,
                     len: 2,
                     line: 1,
@@ -228,7 +225,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 2,
                     len: 0,
                     line: 1,
@@ -251,7 +247,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 2,
                     len: 2,
                     line: 3,
@@ -264,7 +259,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 4,
                     len: 0,
                     line: 3,
@@ -287,7 +281,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 0,
                     len: 0,
                     line: 1,
@@ -310,7 +303,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 4,
                     len: 0,
                     line: 2,
@@ -333,7 +325,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 0,
                     len: 2,
                     line: 1,
@@ -346,7 +337,6 @@ mod tests {
             Token::new(
                 TokenType::Plus,
                 Span {
-                    origin: source.clone(),
                     idx: 2,
                     len: 1,
                     line: 1,
@@ -359,7 +349,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 3,
                     len: 2,
                     line: 1,
@@ -372,7 +361,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 5,
                     len: 0,
                     line: 1,
@@ -395,7 +383,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 11,
                     len: 2,
                     line: 2,
@@ -408,7 +395,6 @@ mod tests {
             Token::new(
                 TokenType::Plus,
                 Span {
-                    origin: source.clone(),
                     idx: 28,
                     len: 1,
                     line: 4,
@@ -421,7 +407,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 40,
                     len: 2,
                     line: 5,
@@ -434,7 +419,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 42,
                     len: 0,
                     line: 5,
@@ -456,7 +440,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 0,
                     len: 2,
                     line: 1,
@@ -469,7 +452,6 @@ mod tests {
             Token::new(
                 TokenType::Plus,
                 Span {
-                    origin: source.clone(),
                     idx: 3,
                     len: 1,
                     line: 2,
@@ -482,7 +464,6 @@ mod tests {
             Token::new(
                 TokenType::Literal(Literal::Integer),
                 Span {
-                    origin: source.clone(),
                     idx: 15,
                     len: 2,
                     line: 3,
@@ -495,7 +476,6 @@ mod tests {
             Token::new(
                 TokenType::Eof,
                 Span {
-                    origin: source.clone(),
                     idx: 17,
                     len: 0,
                     line: 3,

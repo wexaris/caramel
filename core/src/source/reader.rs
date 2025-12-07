@@ -5,6 +5,7 @@ use std::rc::Rc;
 /// A source tokenizer that tracks line/column position within a code source.
 #[derive(Debug, Clone)]
 pub struct SourceReader {
+    origin: Rc<dyn CodeSource>,
     pos: SourcePos, // Position within the source file
     pub prev: u8,   // Previous symbol
     pub curr: u8,   // Current symbol
@@ -17,14 +18,15 @@ impl SourceReader {
             prev: 0,
             curr: origin.source_bytes().get(0).cloned().unwrap_or(0),
             next: origin.source_bytes().get(1).cloned().unwrap_or(0),
-            pos: SourcePos::new(origin, 0, 1, 1),
+            pos: SourcePos::default(),
+            origin,
         }
     }
 
     /// Returns the source origin.
     #[inline]
     pub fn origin(&self) -> &Rc<dyn CodeSource> {
-        &self.pos.origin
+        &self.origin
     }
 
     /// Returns the current position within the source.
@@ -36,7 +38,7 @@ impl SourceReader {
     /// Returns true if the reader is at the end of the source.
     #[inline]
     pub fn is_eof(&self) -> bool {
-        self.pos.idx == self.pos.origin.source_bytes().len()
+        self.pos.idx == self.origin.source_bytes().len()
     }
 
     /// Advances the tokenizer by one symbol.
@@ -45,7 +47,7 @@ impl SourceReader {
         if self.is_eof() {
             assert_eq!(
                 self.pos.idx,
-                self.pos.origin.source_bytes().len(),
+                self.origin.source_bytes().len(),
                 "SourceReader.index should be the source length at EOF"
             );
             assert_ne!(self.prev, 0, "SourceReader.prev should not be 0 at EOF");
@@ -74,7 +76,7 @@ impl SourceReader {
     /// Advances the tokenizer by one character without tracking position.
     fn bump_index(&mut self) {
         assert!(
-            self.pos.idx < self.pos.origin.source_bytes().len(),
+            self.pos.idx < self.origin.source_bytes().len(),
             "SourceReader.index bumping past source length"
         );
 
@@ -88,7 +90,7 @@ impl SourceReader {
 
     /// Returns the byte at the given index.
     fn get_byte_at(&self, index: usize) -> u8 {
-        let bytes = self.pos.origin.source_bytes();
+        let bytes = self.origin.source_bytes();
         bytes.get(index).cloned().unwrap_or(0)
     }
 }
@@ -106,7 +108,7 @@ mod tests {
         let source = Rc::new(SOURCE) as Rc<dyn CodeSource>;
         let reader = SourceReader::new(source.clone());
 
-        assert!(Rc::ptr_eq(&reader.pos.origin, &source));
+        assert!(Rc::ptr_eq(&reader.origin, &source));
         assert_eq!(reader.pos.idx, 0);
         assert_eq!(reader.pos.line, 1);
         assert_eq!(reader.pos.col, 1);
@@ -122,7 +124,7 @@ mod tests {
         let source = Rc::new(SOURCE) as Rc<dyn CodeSource>;
         let reader = SourceReader::new(source.clone());
 
-        assert!(Rc::ptr_eq(&reader.pos.origin, &source));
+        assert!(Rc::ptr_eq(&reader.origin, &source));
         assert_eq!(reader.pos.idx, 0);
         assert_eq!(reader.pos.line, 1);
         assert_eq!(reader.pos.col, 1);
@@ -191,7 +193,7 @@ mod tests {
 
         let mut idx = 0usize;
         while !reader.is_eof() {
-            assert!(Rc::ptr_eq(&reader.pos.origin, &source));
+            assert!(Rc::ptr_eq(&reader.origin, &source));
             assert_eq!(reader.pos.idx, idx);
             validate_position(&reader, newline);
 
@@ -199,13 +201,13 @@ mod tests {
             idx += 1;
         }
 
-        assert!(Rc::ptr_eq(&reader.pos.origin, &source));
+        assert!(Rc::ptr_eq(&reader.origin, &source));
         assert_eq!(reader.pos.idx, src.len());
         validate_position(&reader, newline);
     }
 
     fn validate_position(reader: &SourceReader, newline: &str) {
-        let source_bytes = reader.pos.origin.source_bytes();
+        let source_bytes = reader.origin.source_bytes();
         let current_source_bytes = &source_bytes[..reader.pos.idx];
 
         let line_count = current_source_bytes
