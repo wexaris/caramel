@@ -1,0 +1,7 @@
+[package]
+name = "meltc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+caramel = { path = "../core" }
