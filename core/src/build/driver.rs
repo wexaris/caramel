@@ -21,7 +21,7 @@ impl BuildDriver {
 
     /// Builds the source files provided in the build configuration.
     pub fn build(self) {
-        for input in self.config.input_files {
+        for input in self.config.input {
             let source_file = Rc::new(SourceFile::read(&input).unwrap());
             let source_reader = SourceReader::new(source_file);
             let tokenizer = ListTokenizer::from_source(source_reader);
@@ -29,7 +29,7 @@ impl BuildDriver {
 
             let ast = parser.build_module();
 
-            if self.config.write_ast {
+            if self.config.print_ast {
                 let ast_filepath = Self::output_ast_filepath(&input);
 
                 let mut tp = ASTPrinter::new()

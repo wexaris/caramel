@@ -1,14 +1,12 @@
-use caramel;
+mod cli;
+
+use crate::cli::Args;
 use caramel::build::{BuildConfig, BuildDriver};
-use std::path::PathBuf;
+use clap::Parser;
 
 fn main() {
-    let input: PathBuf = std::env::current_dir()
-        .unwrap()
-        .join("test")
-        .join("input.car");
-
-    let config = BuildConfig::new().input_file(input).write_ast(true);
+    let args = Args::parse();
+    let config = BuildConfig::from(args);
 
     let driver = BuildDriver::new(config);
 
