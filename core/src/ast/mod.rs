@@ -1,12 +1,12 @@
 mod builder;
-mod tree_printer;
+mod printer;
 
 use crate::parse::span::Span;
 use crate::source::code_source::CodeSource;
 pub use builder::*;
+pub use printer::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-pub use tree_printer::*;
 
 #[derive(Debug, Clone)]
 pub struct Module {

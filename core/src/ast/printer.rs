@@ -5,12 +5,12 @@ use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 
-pub struct TreePrinter {
+pub struct ASTPrinter {
     sinks: Vec<Box<dyn Write>>,
-    indent: Vec<bool>,
+    indent: Vec<bool>, // levels of indentation (true = trailing line)
 }
 
-impl TreePrinter {
+impl ASTPrinter {
     pub fn new() -> Self {
         Self {
             sinks: Vec::new(),
@@ -69,7 +69,7 @@ impl TreePrinter {
     }
 }
 
-impl Write for TreePrinter {
+impl Write for ASTPrinter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         for sink in &mut self.sinks {
             sink.write_all(buf)?;
@@ -109,11 +109,11 @@ macro_rules! indent {
 /// ---- AST Traversal
 
 pub trait PrintTree {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()>;
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()>;
 }
 
 impl PrintTree for Module {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         writeln!(p, "Module: {} [{}]", self.origin, self.span)?;
         indent!(p, {
             self.stmts.print_tree(p)?;
@@ -122,7 +122,7 @@ impl PrintTree for Module {
 }
 
 impl PrintTree for Stmt {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         match self {
             Stmt::Expr(expr) => expr.borrow().print_tree(p),
         }
@@ -130,7 +130,7 @@ impl PrintTree for Stmt {
 }
 
 impl PrintTree for Expr {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         match self {
             Expr::FuncCall(expr) => expr.print_tree(p),
             Expr::Lit(expr) => expr.print_tree(p),
@@ -139,7 +139,7 @@ impl PrintTree for Expr {
 }
 
 impl PrintTree for FuncCall {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         writeln!(p, "FuncCall: {} [{}]", self.id.name, self.span)?;
         indent!(p, {
             self.args.print_tree(p)?;
@@ -148,7 +148,7 @@ impl PrintTree for FuncCall {
 }
 
 impl PrintTree for Literal {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         match self {
             Literal::Integer { val, span } => writeln!(p, "Integer: {} [{}]", val, span),
         }
@@ -159,7 +159,7 @@ impl PrintTree for Literal {
 /// ---- AST Traversal Helpers
 
 impl<T: PrintTree> PrintTree for [T] {
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         for (idx, item) in self.iter().enumerate() {
             if idx == self.len() - 1 {
                 p.mark_last();
@@ -172,14 +172,14 @@ impl<T: PrintTree> PrintTree for [T] {
 
 impl<T: PrintTree> PrintTree for Rc<T> {
     #[inline]
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         self.as_ref().print_tree(p)
     }
 }
 
 impl<T: PrintTree> PrintTree for RefCell<T> {
     #[inline]
-    fn print_tree(&self, p: &mut TreePrinter) -> std::io::Result<()> {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         self.borrow().print_tree(p)
     }
 }

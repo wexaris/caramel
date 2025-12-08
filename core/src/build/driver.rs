@@ -1,4 +1,4 @@
-use crate::ast::{ASTBuilder, PrintTree, TreePrinter};
+use crate::ast::{ASTBuilder, ASTPrinter, PrintTree};
 use crate::build::config::BuildConfig;
 use crate::parse::parser::SourceParser;
 use crate::parse::token::ListTokenizer;
@@ -32,7 +32,7 @@ impl BuildDriver {
             if self.config.write_ast {
                 let ast_filepath = Self::output_ast_filepath(&input);
 
-                let mut tp = TreePrinter::new()
+                let mut tp = ASTPrinter::new()
                     .add_stdout()
                     .add_file(ast_filepath)
                     .expect("Failed to create AST printer");
