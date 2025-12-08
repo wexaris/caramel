@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::parse::error::{ParseError, ParseResult};
+use crate::parse::span::Span;
 use crate::parse::token::{Token, TokenType, Tokenizer};
 use crate::source::code_source::CodeSource;
 use std::cell::RefCell;
@@ -33,6 +34,8 @@ impl<T: Tokenizer> SourceParser<T> {
     }
 
     fn parse_module(&mut self) -> Module {
+        let start_pos = self.curr.span.position();
+
         let mut stmts = vec![];
         while !self.curr.is_eof() {
             match self.parse_stmt() {
@@ -49,6 +52,7 @@ impl<T: Tokenizer> SourceParser<T> {
         Module {
             origin: self.tokenizer.origin().clone(),
             stmts,
+            span: Span::from_range(&start_pos, &self.curr.span.position()),
         }
     }
 
@@ -60,18 +64,19 @@ impl<T: Tokenizer> SourceParser<T> {
 
     fn parse_expr(&mut self) -> ParseResult<Rc<RefCell<Expr>>> {
         let expr = match &self.curr.token_type {
-            TokenType::Ident => self.parse_func_call()?,
-            TokenType::Literal(_) => self.parse_literal()?,
+            TokenType::Ident => Expr::FuncCall(self.parse_func_call()?),
+            TokenType::Literal(_) => Expr::Lit(self.parse_literal()?),
             // TODO: Use a list of valid expression tokens for expected tokens
             _ => return Err(ParseError::UnexpectedToken(self.curr.clone(), vec![])),
         };
         Ok(Rc::new(RefCell::new(expr)))
     }
 
-    fn parse_func_call(&mut self) -> ParseResult<Expr> {
+    fn parse_func_call(&mut self) -> ParseResult<FuncCall> {
         let id = self.parse_ident()?;
         let args = self.parse_func_args()?;
-        Ok(Expr::FuncCall { id, args })
+        let span = self.span_from(&id.span);
+        Ok(FuncCall { id, args, span })
     }
 
     fn parse_func_args(&mut self) -> ParseResult<Vec<Rc<RefCell<Expr>>>> {
@@ -104,17 +109,27 @@ impl<T: Tokenizer> SourceParser<T> {
 
     fn parse_ident(&mut self) -> ParseResult<Ident> {
         let tok = expect!(self, TokenType::Ident)?;
-        let raw_str = self.origin().get_substr_from_span(&tok.span);
-        Ok(Ident {
-            name: raw_str.to_owned(),
-        })
+        let name = self.origin().get_substr_from_span(&tok.span).to_owned();
+        let span = tok.span;
+        Ok(Ident { name, span })
     }
 
-    fn parse_literal(&mut self) -> ParseResult<Expr> {
+    fn parse_literal(&mut self) -> ParseResult<Literal> {
         let tok = expect!(self, TokenType::Literal(_))?;
         let raw_str = self.origin().get_substr_from_span(&tok.span);
         let val = i32::from_str(raw_str).expect("Invalid integer literal");
-        Ok(Expr::Lit(Literal::Integer(val)))
+        let span = tok.span;
+        Ok(Literal::Integer { val, span })
+    }
+
+    #[inline]
+    fn span_from(&self, start: &Span) -> Span {
+        Span::new(
+            start.idx,
+            self.curr.span.idx - start.idx,
+            start.line,
+            start.col,
+        )
     }
 }
 

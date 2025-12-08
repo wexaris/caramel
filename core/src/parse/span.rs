@@ -61,3 +61,9 @@ impl PartialEq for Span {
     }
 }
 impl Eq for Span {}
+
+impl std::fmt::Display for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.line, self.col)
+    }
+}

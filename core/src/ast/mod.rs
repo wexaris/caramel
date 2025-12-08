@@ -1,6 +1,7 @@
 mod builder;
 mod tree_printer;
 
+use crate::parse::span::Span;
 use crate::source::code_source::CodeSource;
 pub use builder::*;
 use std::cell::RefCell;
@@ -11,6 +12,7 @@ pub use tree_printer::*;
 pub struct Module {
     pub origin: Rc<dyn CodeSource>,
     pub stmts: Vec<Rc<RefCell<Stmt>>>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]
@@ -20,19 +22,24 @@ pub enum Stmt {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    FuncCall {
-        id: Ident,
-        args: Vec<Rc<RefCell<Expr>>>,
-    },
+    FuncCall(FuncCall),
     Lit(Literal),
 }
 
 #[derive(Debug, Clone)]
+pub struct FuncCall {
+    pub id: Ident,
+    pub args: Vec<Rc<RefCell<Expr>>>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
 pub enum Literal {
-    Integer(i32),
+    Integer { val: i32, span: Span },
 }
 
 #[derive(Debug, Clone)]
 pub struct Ident {
     pub name: String,
+    pub span: Span,
 }
