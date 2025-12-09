@@ -5,17 +5,12 @@ use crate::parse::token::tokenizer::raw::RawTokenizer;
 use crate::parse::token::r#type::TokenType;
 use crate::source::code_source::CodeSource;
 use crate::source::reader::SourceReader;
-use log::debug;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Tokenizer that tokenizes source code in a sequential fashion.
 pub struct LiveTokenizer {
     // The active tokenizer
     raw: RawTokenizer,
-    // Stack of pinned token iterators used for backtracking
-    pin_stack: Rc<RefCell<Vec<RawTokenizer>>>,
-
     tmp_next: Option<(RawTokenizer, Token)>,
 }
 
@@ -23,9 +18,15 @@ impl LiveTokenizer {
     pub fn new(reader: SourceReader) -> Self {
         Self {
             raw: RawTokenizer::new(reader),
-            pin_stack: Rc::new(RefCell::new(Vec::new())),
             tmp_next: None,
         }
+    }
+
+    fn tmp_state<T, F: FnOnce(&mut Self) -> T>(&mut self, f: F) -> T {
+        let raw = self.raw.clone();
+        let ret = f(self);
+        self.raw = raw;
+        ret
     }
 }
 
@@ -71,55 +72,13 @@ impl Tokenizer for LiveTokenizer {
         // Otherwise, read the next token and cache it.
         match &self.tmp_next {
             Some((_, token)) => token.clone(),
-            None => {
-                // Pin the current tokenizer position to prevent it from advancing.
-                self.push_pin();
-
-                let token = self.next_token();
-                let tokenizer = self.raw.clone();
-                self.tmp_next = Some((tokenizer, token.clone()));
-
-                // Unpin the previous tokenizer position.
-                self.pop_pin();
+            None => self.tmp_state(|tk| {
+                let token = tk.next_token();
+                let tokenizer = tk.raw.clone();
+                tk.tmp_next = Some((tokenizer, token.clone()));
                 token
-            }
+            }),
         }
-    }
-
-    fn push_pin(&mut self) -> impl Drop + 'static {
-        debug!(
-            "TokenLiveReader.push_pin pin_stack[{}] : {}",
-            self.pin_stack.borrow().len(),
-            self.raw.get_pos()
-        );
-        self.pin_stack.borrow_mut().push(self.raw.clone());
-        ScopedTokenLiveReaderPin::new(self)
-    }
-
-    fn pop_pin(&mut self) {
-        assert!(
-            !self.pin_stack.borrow().is_empty(),
-            "TokenLiveReader.pop_pin() called without a matching push_pin()"
-        );
-        debug!(
-            "TokenLiveReader.pop_pin pin_stack[{}] : {}",
-            self.pin_stack.borrow().len() - 1,
-            self.raw.get_pos()
-        );
-        self.raw = self.pin_stack.borrow_mut().pop().unwrap();
-    }
-
-    fn ack_pin(&mut self) {
-        assert!(
-            !self.pin_stack.borrow().is_empty(),
-            "TokenLiveReader.ack_pin() called without a matching push_pin()"
-        );
-        debug!(
-            "TokenLiveReader.ack_pin pin_stack[{}] : {}",
-            self.pin_stack.borrow().len() - 1,
-            self.raw.get_pos()
-        );
-        self.pin_stack.borrow_mut().pop();
     }
 }
 
@@ -128,55 +87,6 @@ impl Iterator for LiveTokenizer {
 
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.next_token())
-    }
-}
-
-/// A scope guard that commits the tokenizer position when the end of the scope is reached.
-pub struct ScopedTokenLiveReaderPin {
-    pin_stack: Rc<RefCell<Vec<RawTokenizer>>>,
-    pinned_addr: usize,
-}
-
-impl ScopedTokenLiveReaderPin {
-    pub fn new(iter: &LiveTokenizer) -> Self {
-        assert!(!iter.pin_stack.borrow().is_empty());
-        assert_eq!(
-            iter.pin_stack.borrow().last().unwrap().get_pos(),
-            iter.raw.get_pos()
-        );
-        let pin_stack = iter.pin_stack.clone();
-        let pinned_addr = iter.pin_stack.borrow().last().unwrap() as *const RawTokenizer as usize;
-        Self {
-            pin_stack,
-            pinned_addr,
-        }
-    }
-}
-
-impl Drop for ScopedTokenLiveReaderPin {
-    fn drop(&mut self) {
-        let mut pin_stack = self.pin_stack.borrow_mut();
-        assert!(
-            !pin_stack.is_empty(),
-            "ScopedTokenLiveReaderPin.drop() called without a matching push_pin()"
-        );
-
-        let pinned_stack_addr = pin_stack.last().unwrap() as *const RawTokenizer as usize;
-        if self.pinned_addr != pinned_stack_addr {
-            debug!(
-                "ScopedTokenLiveReaderPin.drop @{} already acknowledged",
-                self.pinned_addr
-            );
-            return;
-        }
-
-        debug!(
-            "ScopedTokenLiveReaderPin.drop pin_stack[{}] @{} : {}",
-            pin_stack.len() - 1,
-            self.pinned_addr,
-            self.pin_stack.borrow().last().unwrap().get_pos()
-        );
-        pin_stack.pop();
     }
 }
 
@@ -197,7 +107,6 @@ mod tests {
         let tokenizer = LiveTokenizer::new(SourceReader::new(source.clone()));
 
         assert!(Rc::ptr_eq(tokenizer.raw.origin(), &source));
-        assert!(tokenizer.pin_stack.borrow().is_empty());
     }
 
     #[test]

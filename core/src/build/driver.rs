@@ -1,7 +1,8 @@
-use crate::ast::{ASTBuilder, ASTPrinter, PrintTree};
+use crate::ast::{ASTBuilder, ASTPrinter, Module, PrintTree};
 use crate::build::config::BuildConfig;
+use crate::error::{CompileError, CompileResult};
 use crate::parse::parser::SourceParser;
-use crate::parse::token::ListTokenizer;
+use crate::parse::token::LiveTokenizer;
 use crate::source::code_source::source_file::SourceFile;
 use crate::source::reader::SourceReader;
 use std::path::{Path, PathBuf};
@@ -20,26 +21,32 @@ impl BuildDriver {
     }
 
     /// Builds the source files provided in the build configuration.
-    pub fn build(self) {
-        for input in self.config.input {
-            let source_file = Rc::new(SourceFile::read(&input).unwrap());
+    pub fn build(self) -> CompileResult<()> {
+        for input in &self.config.input {
+            let source_file = Rc::new(SourceFile::read(&input)?);
             let source_reader = SourceReader::new(source_file);
-            let tokenizer = ListTokenizer::from_source(source_reader);
+            let tokenizer = LiveTokenizer::new(source_reader);
             let parser = SourceParser::new(Box::new(tokenizer));
 
             let ast = parser.build_module();
 
             if self.config.print_ast {
-                let ast_filepath = Self::output_ast_filepath(&input);
-
-                let mut tp = ASTPrinter::new()
-                    .add_stdout()
-                    .add_file(ast_filepath)
-                    .expect("Failed to create AST printer");
-
-                ast.print_tree(&mut tp).expect("Failed to print AST");
+                self.print_ast(&input, &ast)?;
             }
         }
+        Ok(())
+    }
+
+    fn print_ast<P: AsRef<Path>>(&self, input: P, ast: &Module) -> CompileResult<()> {
+        let ast_filepath = Self::output_ast_filepath(&input);
+
+        let mut printer = ASTPrinter::new()
+            .add_stdout()
+            .add_file(ast_filepath)
+            .map_err(|e| CompileError::OutputFileError(e))?;
+
+        ast.print_tree(&mut printer)
+            .map_err(|e| CompileError::OutputFileError(e))
     }
 
     fn output_ast_filepath<P: AsRef<Path>>(input: P) -> PathBuf {

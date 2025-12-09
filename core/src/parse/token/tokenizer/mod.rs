@@ -26,14 +26,4 @@ pub trait Tokenizer: Sized {
 
     /// Returns the next token without advancing the tokenizer position.
     fn peek_token(&mut self) -> Token;
-
-    /// Pins the current tokenizer position in case of backtracking.
-    /// The tokenizer position is restored when the `TokenIter` is dropped.
-    fn push_pin(&mut self) -> impl Drop + 'static;
-
-    /// Restores the tokenizer position from the last `push_pin()` call.
-    fn pop_pin(&mut self);
-
-    /// Acknowledges the last `push_pin()` call and removes it from the stack.
-    fn ack_pin(&mut self);
 }

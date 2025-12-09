@@ -41,16 +41,4 @@ impl Tokenizer for MockTokenizer {
     fn peek_token(&mut self) -> Token {
         self.inner.peek_token()
     }
-
-    fn push_pin(&mut self) -> impl Drop + 'static {
-        self.inner.push_pin()
-    }
-
-    fn pop_pin(&mut self) {
-        self.inner.pop_pin()
-    }
-
-    fn ack_pin(&mut self) {
-        self.inner.ack_pin()
-    }
 }
