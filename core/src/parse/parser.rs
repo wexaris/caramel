@@ -1,11 +1,12 @@
 use crate::ast::*;
 use crate::parse::error::{ParseError, ParseResult};
+use crate::parse::op_info::{Associativity, OpInfo};
 use crate::parse::span::Span;
+use crate::parse::token;
 use crate::parse::token::{Token, TokenType, Tokenizer};
 use crate::source::code_source::CodeSource;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::str::FromStr;
 
 pub struct SourceParser<T: Tokenizer> {
     tokenizer: Box<T>,
@@ -36,11 +37,11 @@ impl<T: Tokenizer> SourceParser<T> {
     fn parse_module(&mut self) -> Module {
         let start_pos = self.curr.span.position();
 
-        let mut stmts = vec![];
+        let mut decls = vec![];
         while !self.curr.is_eof() {
-            match self.parse_stmt() {
-                Ok(stmt) => {
-                    stmts.push(stmt);
+            match self.parse_decl() {
+                Ok(decl) => {
+                    decls.push(decl);
                 }
                 Err(e) => {
                     println!("{e}");
@@ -51,18 +52,122 @@ impl<T: Tokenizer> SourceParser<T> {
         }
         Module {
             origin: self.tokenizer.origin().clone(),
-            stmts,
+            decls,
             span: Span::from_range(&start_pos, &self.curr.span.position()),
         }
     }
+    fn parse_decl(&mut self) -> ParseResult<Decl> {
+        let decl = match self.curr.token_type {
+            TokenType::Fn => Decl::Func(self.parse_decl_func()?),
+            _ => panic!("Invalid token type: {}", self.curr.token_type),
+        };
+        Ok(decl)
+    }
 
-    fn parse_stmt(&mut self) -> ParseResult<Rc<RefCell<Stmt>>> {
+    fn parse_decl_func(&mut self) -> ParseResult<FuncDecl> {
+        let start_tok = expect!(self, TokenType::Fn)?;
+
+        // name
+        let id = self.parse_ident()?;
+
+        // params
+        expect!(self, TokenType::ParenOpen)?;
+        let params = self.parse_sequence(Self::parse_param, TokenType::Comma)?;
+        expect!(self, TokenType::ParenClose)?;
+
+        // return type
+        expect!(self, TokenType::Colon)?;
+        let return_ty = self.parse_type()?;
+
+        // body
+        expect!(self, TokenType::BraceOpen)?;
+        let body = self.parse_sequence(Self::parse_stmt, TokenType::Semicolon)?;
+        expect!(self, TokenType::BraceClose)?;
+
+        Ok(FuncDecl {
+            id,
+            return_ty,
+            params,
+            body,
+            span: self.span_from(&start_tok.span),
+        })
+    }
+
+    fn parse_param(&mut self) -> ParseResult<Param> {
+        let id = self.parse_ident()?;
+        expect!(self, TokenType::Colon)?;
+        let ty = self.parse_type()?;
+        Ok(Param {
+            span: self.span_from(&id.span),
+            id,
+            ty,
+        })
+    }
+
+    fn parse_type(&mut self) -> ParseResult<Type> {
+        let start = self.curr.span.clone();
+        let ty = match self.curr.token_type {
+            TokenType::Literal(token::Literal::Integer) => ValueType::Integer,
+            TokenType::Literal(token::Literal::Real) => ValueType::Real,
+            TokenType::Literal(token::Literal::String) => ValueType::String,
+            TokenType::Literal(token::Literal::Char) => ValueType::Char,
+            TokenType::Literal(token::Literal::Bool(val)) => ValueType::Bool(val),
+            _ => panic!("Invalid type: {}", self.curr.token_type),
+        };
+        self.bump();
+        Ok(Type {
+            ty,
+            span: self.span_from(&start),
+        })
+    }
+
+    fn parse_stmt(&mut self) -> ParseResult<Stmt> {
         let expr = self.parse_expr()?;
-        expect!(self, TokenType::Semicolon)?;
-        Ok(Rc::new(RefCell::new(Stmt::Expr(expr))))
+        Ok(Stmt::Expr(expr))
     }
 
     fn parse_expr(&mut self) -> ParseResult<Rc<RefCell<Expr>>> {
+        self.parse_expr_inner(1)
+    }
+
+    fn parse_expr_inner(&mut self, precedence: u32) -> ParseResult<Rc<RefCell<Expr>>> {
+        // Parse first sub-expression
+        let mut lhs = self.parse_expr_atom(precedence)?;
+
+        // Keep parsing until we reach a non-associative operator,
+        // or our precedence is lower than the operator's precedence.
+        while self.curr.is_binary_op() {
+            // Parse operator
+            let op = OpInfo::for_token(self.curr.token_type);
+            if precedence >= op.precedence {
+                break;
+            }
+            self.bump();
+
+            let new_precedence = match op.associativity {
+                Associativity::Left => precedence + 1,
+                Associativity::Right => precedence,
+            };
+            let rhs = self.parse_expr_inner(new_precedence)?;
+
+            lhs = {
+                let span = self.span_from(lhs.borrow().span());
+                let op = BinaryOp {
+                    ty: op.ty,
+                    lhs,
+                    rhs,
+                    span,
+                };
+                Rc::new(RefCell::new(Expr::BinaryOp(op)))
+            };
+        }
+
+        Ok(lhs)
+    }
+
+    fn parse_expr_atom(&mut self, precedence: u32) -> ParseResult<Rc<RefCell<Expr>>> {
+        // TODO: use precedence for unary ops
+
         let expr = match &self.curr.token_type {
             TokenType::Ident => Expr::FuncCall(self.parse_func_call()?),
             TokenType::Literal(_) => Expr::Lit(self.parse_literal()?),
@@ -86,11 +191,11 @@ impl<T: Tokenizer> SourceParser<T> {
         Ok(args)
     }
 
-    fn parse_sequence(
+    fn parse_sequence<I>(
         &mut self,
-        mut parse_item: impl FnMut(&mut Self) -> ParseResult<Rc<RefCell<Expr>>>,
+        mut parse_item: impl FnMut(&mut Self) -> ParseResult<I>,
         sep: TokenType,
-    ) -> ParseResult<Vec<Rc<RefCell<Expr>>>> {
+    ) -> ParseResult<Vec<I>> {
         let mut args = vec![];
         loop {
             match parse_item(self) {
@@ -117,9 +222,15 @@ impl<T: Tokenizer> SourceParser<T> {
     fn parse_literal(&mut self) -> ParseResult<Literal> {
         let tok = expect!(self, TokenType::Literal(_))?;
         let raw_str = self.origin().get_substr_from_span(&tok.span);
-        let val = i32::from_str(raw_str).expect("Invalid integer literal");
-        let span = tok.span;
-        Ok(Literal::Integer { val, span })
+        let lit = match tok.token_type {
+            TokenType::Literal(token::Literal::Integer) => Literal {
+                ty: ValueType::Integer,
+                raw_str: raw_str.to_string(),
+                span: tok.span,
+            },
+            _ => unreachable!("Invalid literal type: {}", tok.token_type),
+        };
+        Ok(lit)
     }
 
     #[inline]

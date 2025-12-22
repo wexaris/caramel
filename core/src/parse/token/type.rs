@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum TokenType {
     Unknown,
     Eof,
@@ -10,7 +10,6 @@ pub enum TokenType {
     Fn,
     Var,
 
-    Dot,       // .
     Comma,     // ,
     Colon,     // :
     Semicolon, // ;
@@ -23,6 +22,7 @@ pub enum TokenType {
     BraceClose,   // }
 
     // Binary Operators
+    Dot,     // .
     Plus,    // +
     Minus,   // -
     Star,    // *
@@ -46,7 +46,7 @@ pub enum TokenType {
     Literal(Literal),
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum Literal {
     Integer,    // int/uint
     Real,       // float/double

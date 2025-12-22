@@ -1,4 +1,6 @@
 
-print(42, 69);
-print(42);
-print(69);
+fn main(): i32 {
+    print(1, 2, 2 + 1);
+    print(42);
+    print(69);
+}

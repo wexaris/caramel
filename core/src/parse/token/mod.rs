@@ -29,13 +29,26 @@ impl Token {
     /// Returns true if this token represents the end of the source file.
     #[inline]
     pub fn is_eof(&self) -> bool {
-        self.token_type == TokenType::Eof
+        matches!(self.token_type, TokenType::Eof)
+    }
+
+    /// Returns true if this token represents a binary operator.
+    #[inline]
+    pub fn is_binary_op(&self) -> bool {
+        matches!(
+            self.token_type,
+            TokenType::Plus
+                | TokenType::Minus
+                | TokenType::Star
+                | TokenType::Slash
+                | TokenType::Percent
+        )
     }
 
     /// Returns true if this token comes from an unrecognized symbol.
     #[inline]
     pub fn is_invalid(&self) -> bool {
-        self.token_type == TokenType::Unknown
+        matches!(self.token_type, TokenType::Unknown)
     }
 }
 
