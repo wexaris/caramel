@@ -42,7 +42,7 @@ impl PrintTree for FuncDecl {
         let args_str = self
             .params
             .iter()
-            .map(|p| p.id.name.as_str())
+            .map(|p| format!("{:?}", p.ty.ty))
             .collect::<Vec<_>>()
             .join(",");
         writeln!(
@@ -69,6 +69,7 @@ impl PrintTree for Expr {
         match self {
             Expr::FuncCall(expr) => expr.print_tree(p),
             Expr::BinaryOp(expr) => expr.print_tree(p),
+            Expr::VarAccess(expr) => writeln!(p, "VarAccess: {} [{}]", expr.name, expr.span),
             Expr::Lit(expr) => expr.print_tree(p),
         }
     }

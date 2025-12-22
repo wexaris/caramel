@@ -9,7 +9,19 @@ lazy_static! {
         ("var", TokenType::Var),
         ("true", TokenType::Literal(Literal::Bool(true))),
         ("false", TokenType::Literal(Literal::Bool(false))),
-        ("i32", TokenType::Literal(Literal::Integer)),
+        ("i64", TokenType::I64),
+        ("i32", TokenType::I32),
+        ("i16", TokenType::I16),
+        ("i8", TokenType::I8),
+        ("u64", TokenType::U64),
+        ("u32", TokenType::U32),
+        ("u16", TokenType::U16),
+        ("u8", TokenType::U8),
+        ("f64", TokenType::F64),
+        ("f32", TokenType::F32),
+        ("string", TokenType::String),
+        ("char", TokenType::Char),
+        ("bool", TokenType::Bool),
     ]);
 }
 

@@ -39,8 +39,26 @@ pub struct Param {
 
 #[derive(Debug, Clone)]
 pub struct Type {
-    pub ty: ValueType,
+    pub ty: TypeType,
     pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TypeType {
+    Custom(String),
+    I64,
+    I32,
+    I16,
+    I8,
+    U64,
+    U32,
+    U16,
+    U8,
+    F64,
+    F32,
+    String,
+    Char,
+    Bool,
 }
 
 #[derive(Debug, Clone)]
@@ -52,6 +70,7 @@ pub enum Stmt {
 pub enum Expr {
     FuncCall(FuncCall),
     BinaryOp(BinaryOp),
+    VarAccess(Ident),
     Lit(Literal),
 }
 
@@ -106,6 +125,7 @@ impl Expr {
         match self {
             Expr::FuncCall(expr) => &expr.span,
             Expr::BinaryOp(expr) => &expr.span,
+            Expr::VarAccess(expr) => &expr.span,
             Expr::Lit(expr) => &expr.span,
         }
     }

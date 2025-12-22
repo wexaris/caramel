@@ -105,20 +105,32 @@ impl<T: Tokenizer> SourceParser<T> {
     }
 
     fn parse_type(&mut self) -> ParseResult<Type> {
-        let start = self.curr.span.clone();
+        let span = self.curr.span.clone();
         let ty = match self.curr.token_type {
-            TokenType::Literal(token::Literal::Integer) => ValueType::Integer,
-            TokenType::Literal(token::Literal::Real) => ValueType::Real,
-            TokenType::Literal(token::Literal::String) => ValueType::String,
-            TokenType::Literal(token::Literal::Char) => ValueType::Char,
-            TokenType::Literal(token::Literal::Bool(val)) => ValueType::Bool(val),
+            TokenType::Ident => {
+                let name = self
+                    .origin()
+                    .get_substr_from_span(&self.curr.span)
+                    .to_owned();
+                TypeType::Custom(name)
+            }
+            TokenType::I64 => TypeType::I64,
+            TokenType::I32 => TypeType::I32,
+            TokenType::I16 => TypeType::I16,
+            TokenType::I8 => TypeType::I8,
+            TokenType::U64 => TypeType::U64,
+            TokenType::U32 => TypeType::U32,
+            TokenType::U16 => TypeType::U16,
+            TokenType::U8 => TypeType::U8,
+            TokenType::F64 => TypeType::F64,
+            TokenType::F32 => TypeType::F32,
+            TokenType::String => TypeType::String,
+            TokenType::Char => TypeType::Char,
+            TokenType::Bool => TypeType::Bool,
             _ => panic!("Invalid type: {}", self.curr.token_type),
         };
         self.bump();
-        Ok(Type {
-            ty,
-            span: self.span_from(&start),
-        })
+        Ok(Type { ty, span })
     }
 
     fn parse_stmt(&mut self) -> ParseResult<Stmt> {
@@ -169,19 +181,22 @@ impl<T: Tokenizer> SourceParser<T> {
         // TODO: use precedence for unary ops
 
         let expr = match &self.curr.token_type {
-            TokenType::Ident => Expr::FuncCall(self.parse_func_call()?),
+            TokenType::Ident => {
+                let id = self.parse_ident()?;
+
+                if matches!(self.curr.token_type, TokenType::ParenOpen) {
+                    let args = self.parse_func_args()?;
+                    let span = self.span_from(&id.span);
+                    Expr::FuncCall(FuncCall { id, args, span })
+                } else {
+                    Expr::VarAccess(id)
+                }
+            }
             TokenType::Literal(_) => Expr::Lit(self.parse_literal()?),
             // TODO: Use a list of valid expression tokens for expected tokens
             _ => return Err(ParseError::UnexpectedToken(self.curr.clone(), vec![])),
         };
         Ok(Rc::new(RefCell::new(expr)))
-    }
-
-    fn parse_func_call(&mut self) -> ParseResult<FuncCall> {
-        let id = self.parse_ident()?;
-        let args = self.parse_func_args()?;
-        let span = self.span_from(&id.span);
-        Ok(FuncCall { id, args, span })
     }
 
     fn parse_func_args(&mut self) -> ParseResult<Vec<Rc<RefCell<Expr>>>> {
