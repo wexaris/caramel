@@ -20,6 +20,9 @@ pub struct Args {
 
     #[clap(long, default_value_t = false)]
     pub print_ast: bool,
+
+    #[clap(long, default_value_t = false)]
+    pub print_ll: bool,
 }
 
 impl From<Args> for BuildConfig {
@@ -28,6 +31,7 @@ impl From<Args> for BuildConfig {
             input: args.input,
             output: args.output,
             print_ast: args.print_ast,
+            print_ll: args.print_ll,
         }
     }
 }

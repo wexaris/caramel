@@ -10,6 +10,8 @@ pub enum TokenType {
     Fn,
     Var,
 
+    Return,
+
     I64,
     I32,
     I16,

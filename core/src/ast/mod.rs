@@ -1,9 +1,7 @@
-mod builder;
 mod print;
 
 use crate::parse::span::Span;
 use crate::source::code_source::CodeSource;
-pub use builder::*;
 pub use print::printer::*;
 pub use print::*;
 use std::cell::RefCell;
@@ -23,10 +21,22 @@ pub enum Decl {
 
 #[derive(Debug, Clone)]
 pub struct FuncDecl {
+    pub proto: FuncPrototype,
+    pub block: Block,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct FuncPrototype {
     pub id: Ident,
     pub return_ty: Type,
     pub params: Vec<Param>,
-    pub body: Vec<Stmt>,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
     pub span: Span,
 }
 
@@ -63,7 +73,14 @@ pub enum TypeType {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    Return(Return),
     Expr(Rc<RefCell<Expr>>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Return {
+    pub expr: Option<Rc<RefCell<Expr>>>,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone)]

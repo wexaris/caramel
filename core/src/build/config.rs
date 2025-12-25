@@ -6,6 +6,7 @@ pub struct BuildConfig {
     pub output: PathBuf,
 
     pub print_ast: bool,
+    pub print_ll: bool,
 }
 
 impl BuildConfig {
@@ -22,6 +23,7 @@ impl BuildConfig {
                 .join(Self::DEFAULT_OUTPUT_BIN),
 
             print_ast: false,
+            print_ll: false,
         }
     }
 
@@ -40,6 +42,12 @@ impl BuildConfig {
     /// Sets whether to print the AST to intermediate files for debugging purposes, e.g. `input.ast`
     pub fn print_ast(mut self, val: bool) -> Self {
         self.print_ast = val;
+        self
+    }
+
+    /// Sets whether to print the LLVM intermediate IR files for debugging purposes, e.g. `input.ll`
+    pub fn print_ll(mut self, val: bool) -> Self {
+        self.print_ll = val;
         self
     }
 }

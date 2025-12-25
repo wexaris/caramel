@@ -102,6 +102,7 @@ name = "caramel"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "inkwell",
  "lazy_static",
  "log",
  "test-case",
@@ -249,6 +250,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "inkwell"
+version = "0.7.1"
+source = "git+https://github.com/TheDan64/inkwell?rev=7abf48a2cf4fc3e338fbeb1780ac7507cbb13e98#7abf48a2cf4fc3e338fbeb1780ac7507cbb13e98"
+dependencies = [
+ "inkwell_internals",
+ "libc",
+ "llvm-sys",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
+name = "inkwell_internals"
+version = "0.12.0"
+source = "git+https://github.com/TheDan64/inkwell?rev=7abf48a2cf4fc3e338fbeb1780ac7507cbb13e98#7abf48a2cf4fc3e338fbeb1780ac7507cbb13e98"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "is-terminal"
 version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -292,6 +315,20 @@ name = "libc"
 version = "0.2.178"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37c93d8daa9d8a012fd8ab92f088405fb202ea0b6ab73ee2482ae66af4f42091"
+
+[[package]]
+name = "llvm-sys"
+version = "211.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "108b3ad2b2eaf2a561fc74196273b20e3436e4a688b8b44e250d83974dc1b2e2"
+dependencies = [
+ "anyhow",
+ "cc",
+ "lazy_static",
+ "libc",
+ "regex-lite",
+ "semver",
+]
 
 [[package]]
 name = "lock_api"
@@ -403,6 +440,12 @@ checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags",
 ]
+
+[[package]]
+name = "regex-lite"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d942b98df5e658f56f20d592c7f868833fe38115e65c33003d8cd224b0155da"
 
 [[package]]
 name = "rustc_version"

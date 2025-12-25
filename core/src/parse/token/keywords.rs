@@ -7,6 +7,7 @@ lazy_static! {
     static ref KEYWORDS: HashMap<&'static str, TokenType> = HashMap::from([
         ("fn", TokenType::Fn),
         ("var", TokenType::Var),
+        ("ret", TokenType::Return),
         ("true", TokenType::Literal(Literal::Bool(true))),
         ("false", TokenType::Literal(Literal::Bool(false))),
         ("i64", TokenType::I64),

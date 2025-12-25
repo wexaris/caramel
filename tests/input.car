@@ -2,9 +2,11 @@
 fn main(): i32 {
     print(1, 2, 2 + 1);
     print_funny(42, 69);
+    ret 0;
 }
 
 fn print_2funny(val1: i32, val2: i32): bool {
     print(val1);
     print(val2);
+    ret true;
 }

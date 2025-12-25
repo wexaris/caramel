@@ -10,7 +10,7 @@ pub mod raw;
 #[cfg(test)]
 pub mod mock_tokenizer;
 
-pub trait Tokenizer: Sized {
+pub trait Tokenizer {
     /// Returns the origin code source being tokenized.
     fn origin(&self) -> &Rc<dyn CodeSource>;
 

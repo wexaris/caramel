@@ -1,4 +1,6 @@
-use crate::ast::{ASTPrinter, BinaryOp, Decl, Expr, FuncCall, FuncDecl, Literal, Module, Stmt};
+use crate::ast::{
+    ASTPrinter, BinaryOp, Decl, Expr, FuncCall, FuncDecl, Literal, Module, Return, Stmt,
+};
 use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
@@ -40,6 +42,7 @@ impl PrintTree for Decl {
 impl PrintTree for FuncDecl {
     fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         let args_str = self
+            .proto
             .params
             .iter()
             .map(|p| format!("{:?}", p.ty.ty))
@@ -48,10 +51,10 @@ impl PrintTree for FuncDecl {
         writeln!(
             p,
             "FuncDecl: {}({}) -> {:?} [{}]",
-            self.id.name, args_str, self.return_ty.ty, self.span
+            self.proto.id.name, args_str, self.proto.return_ty.ty, self.span
         )?;
         indent!(p, {
-            self.body.print_tree(p)?;
+            self.block.stmts.print_tree(p)?;
         })
     }
 }
@@ -59,8 +62,21 @@ impl PrintTree for FuncDecl {
 impl PrintTree for Stmt {
     fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
         match self {
+            Stmt::Return(stmt) => stmt.print_tree(p),
             Stmt::Expr(expr) => expr.borrow().print_tree(p),
         }
+    }
+}
+
+impl PrintTree for Return {
+    fn print_tree(&self, p: &mut ASTPrinter) -> std::io::Result<()> {
+        writeln!(p, "Return: [{}]", self.span)?;
+        indent!(p, {
+            if let Some(expr) = &self.expr {
+                p.mark_last();
+                expr.print_tree(p)?;
+            }
+        })
     }
 }
 

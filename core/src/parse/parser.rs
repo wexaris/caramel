@@ -8,14 +8,14 @@ use crate::source::code_source::CodeSource;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct SourceParser<T: Tokenizer> {
-    tokenizer: Box<T>,
+pub struct SourceParser {
+    tokenizer: Box<dyn Tokenizer>,
     curr: Token,
     next: Token,
 }
 
-impl<T: Tokenizer> SourceParser<T> {
-    pub fn new(mut tokenizer: Box<T>) -> Self {
+impl SourceParser {
+    pub fn new(mut tokenizer: Box<dyn Tokenizer>) -> Self {
         Self {
             curr: tokenizer.next_token(),
             next: tokenizer.peek_token(),
@@ -34,7 +34,7 @@ impl<T: Tokenizer> SourceParser<T> {
         prev
     }
 
-    fn parse_module(&mut self) -> Module {
+    pub fn parse_module(&mut self) -> Module {
         let start_pos = self.curr.span.position();
 
         let mut decls = vec![];
@@ -56,6 +56,7 @@ impl<T: Tokenizer> SourceParser<T> {
             span: Span::from_range(&start_pos, &self.curr.span.position()),
         }
     }
+
     fn parse_decl(&mut self) -> ParseResult<Decl> {
         let decl = match self.curr.token_type {
             TokenType::Fn => Decl::Func(self.parse_decl_func()?),
@@ -65,6 +66,13 @@ impl<T: Tokenizer> SourceParser<T> {
     }
 
     fn parse_decl_func(&mut self) -> ParseResult<FuncDecl> {
+        let proto = self.parse_func_prototype()?;
+        let block = self.parse_block()?;
+        let span = self.span_from(&proto.span);
+        Ok(FuncDecl { proto, block, span })
+    }
+
+    fn parse_func_prototype(&mut self) -> ParseResult<FuncPrototype> {
         let start_tok = expect!(self, TokenType::Fn)?;
 
         // name
@@ -79,29 +87,29 @@ impl<T: Tokenizer> SourceParser<T> {
         expect!(self, TokenType::Colon)?;
         let return_ty = self.parse_type()?;
 
-        // body
-        expect!(self, TokenType::BraceOpen)?;
-        let body = self.parse_sequence(Self::parse_stmt, TokenType::Semicolon)?;
-        expect!(self, TokenType::BraceClose)?;
-
-        Ok(FuncDecl {
+        let span = self.span_from(&start_tok.span);
+        Ok(FuncPrototype {
             id,
-            return_ty,
             params,
-            body,
-            span: self.span_from(&start_tok.span),
+            return_ty,
+            span,
         })
+    }
+
+    fn parse_block(&mut self) -> ParseResult<Block> {
+        let start_tok = expect!(self, TokenType::BraceOpen)?;
+        let stmts = self.parse_sequence(Self::parse_stmt, TokenType::Semicolon)?;
+        expect!(self, TokenType::BraceClose)?;
+        let span = self.span_from(&start_tok.span);
+        Ok(Block { stmts, span })
     }
 
     fn parse_param(&mut self) -> ParseResult<Param> {
         let id = self.parse_ident()?;
         expect!(self, TokenType::Colon)?;
         let ty = self.parse_type()?;
-        Ok(Param {
-            span: self.span_from(&id.span),
-            id,
-            ty,
-        })
+        let span = self.span_from(&id.span);
+        Ok(Param { span, id, ty })
     }
 
     fn parse_type(&mut self) -> ParseResult<Type> {
@@ -134,8 +142,25 @@ impl<T: Tokenizer> SourceParser<T> {
     }
 
     fn parse_stmt(&mut self) -> ParseResult<Stmt> {
-        let expr = self.parse_expr()?;
-        Ok(Stmt::Expr(expr))
+        let stmt = match self.curr.token_type {
+            TokenType::Return => Stmt::Return(self.parse_return()?),
+            _ => {
+                let expr = self.parse_expr()?;
+                Stmt::Expr(expr)
+            }
+        };
+        Ok(stmt)
+    }
+
+    fn parse_return(&mut self) -> ParseResult<Return> {
+        let start_tok = expect!(self, TokenType::Return)?;
+        let mut expr = None;
+        if !matches!(self.curr.token_type, TokenType::Semicolon) {
+            expr = Some(self.parse_expr()?);
+        }
+        expect!(self, TokenType::Semicolon)?;
+        let span = self.span_from(&start_tok.span);
+        Ok(Return { expr, span })
     }
 
     fn parse_expr(&mut self) -> ParseResult<Rc<RefCell<Expr>>> {
@@ -243,6 +268,11 @@ impl<T: Tokenizer> SourceParser<T> {
                 raw_str: raw_str.to_string(),
                 span: tok.span,
             },
+            TokenType::Literal(token::Literal::Bool(val)) => Literal {
+                ty: ValueType::Bool(val),
+                raw_str: raw_str.to_string(),
+                span: tok.span,
+            },
             _ => unreachable!("Invalid literal type: {}", tok.token_type),
         };
         Ok(lit)
@@ -256,12 +286,6 @@ impl<T: Tokenizer> SourceParser<T> {
             start.line,
             start.col,
         )
-    }
-}
-
-impl<T: Tokenizer> ASTBuilder for SourceParser<T> {
-    fn build_module(mut self) -> Module {
-        self.parse_module()
     }
 }
 

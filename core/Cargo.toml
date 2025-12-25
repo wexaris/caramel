@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
+inkwell = { git = "https://github.com/TheDan64/inkwell", rev = "7abf48a2cf4fc3e338fbeb1780ac7507cbb13e98", features = ["llvm21-1"] }
 lazy_static = "1"
 log = "0.4.29"
 thiserror = "2"
